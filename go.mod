@@ -1,3 +1,3 @@
-module github.com/maksymiliank/mc-website-backend
+module github.com/maksymiliank/arrival-mc-backend
 
 go 1.16
