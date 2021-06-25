@@ -7,17 +7,19 @@ import (
 	"strings"
 )
 
+type PathVars map[string]interface{}
+
 // Handler performs action on a HTTP request. Third argument is a map of request parameters with the parameter name
 // as a key and its value as a map's value.
-type Handler func(w http.ResponseWriter, r *http.Request, params map[string]interface{})
+type Handler func(w http.ResponseWriter, r *http.Request, params PathVars)
 
 // Extractor converts a request parameter (which is a string) to specific type required and returns it as the first
 // value. If conversion cannot be done, e.g. due to invalid form of the parameter, it should return false as the second
 // value.
 type Extractor func(param string) (interface{}, bool)
 
-// Route defines handling of a HTTP request for one URL.
-type Route struct {
+// Defines handling of a HTTP request for one URL.
+type route struct {
 	segments []string
 	extrs    []Extractor
 	handlers map[string]Handler
@@ -25,7 +27,7 @@ type Route struct {
 }
 
 type router struct {
-	routes []*Route
+	routes []*route
 }
 
 // IntExtr is an extractor that tries to convert a request parameter to an int.
@@ -66,7 +68,7 @@ func SmallIDExtr(param string) (interface{}, bool) {
 
 // NewRouter returns a new router with an initialized but empty routes slice.
 func NewRouter() *router {
-	return &router{make([]*Route, 0, 16)}
+	return &router{make([]*route, 0, 16)}
 }
 
 // NewRoute adds a new route to the router. It takes request URL, parameters extractors in order and handlers map
@@ -83,7 +85,7 @@ func (r *router) NewRoute(path string, extrs []Extractor, handlers map[string]Ha
 		panic(fmt.Sprintf("Number of extractors does not match number of parameters in route '%s'", path))
 	}
 
-	route := &Route{
+	route := &route{
 		segments: strings.Split(path, "/"),
 		extrs:    extrs,
 		handlers: handlers,
@@ -131,18 +133,18 @@ func allowedMethods(handlers map[string]Handler) []string {
 	return allowed
 }
 
-func matchRoute(reqSegments []string, route *Route) (bool, map[string]interface{}) {
+func matchRoute(reqSegments []string, route *route) (bool, PathVars) {
 	if len(reqSegments) != len(route.segments) {
 		return false, nil
 	}
 
-	var params map[string]interface{}
+	var params PathVars
 	extrIndex := 0
 	for i, s := range route.segments {
 		if len(s) > 0 && s[0] == ':' {
 			if val, ok := route.extrs[extrIndex](reqSegments[i]); ok {
 				if params == nil {
-					params = make(map[string]interface{})
+					params = make(PathVars)
 				}
 				params[s] = val
 				extrIndex++

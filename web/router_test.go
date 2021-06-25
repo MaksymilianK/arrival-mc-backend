@@ -7,20 +7,20 @@ import (
 )
 
 func fakeHandler(body string) Handler {
-	return func(res http.ResponseWriter, req *http.Request, _ map[string]interface{}) {
-		Write(body, res)
+	return func(res http.ResponseWriter, req *http.Request, _ PathVars) {
+		Write(res, body)
 	}
 }
 
 func TestRouter(t *testing.T) {
-	type RouteTest struct {
+	type TestCase struct {
 		path string
 		method string
 		status int
 		body string
 	}
 
-	tests := []RouteTest{
+	tests := []TestCase{
 		{"/route1/seg1/seg2", http.MethodGet, http.StatusOK, "0"},
 		{"/route1/seg1/seg2", http.MethodPatch, http.StatusMethodNotAllowed, ""},
 		{"/route1/seg1/seg2", http.MethodDelete, http.StatusOK, "1"},

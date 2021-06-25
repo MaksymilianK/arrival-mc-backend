@@ -26,7 +26,7 @@ func GlobalHeaders(res http.ResponseWriter) {
 // Write tries to parse data to JSON and then write it as a response body with the OK status if no status has been set
 // on response. If succeeds, callers should just return, because the response is already written. Otherwise, it logs
 // a message and returns.
-func Write(data interface{}, res http.ResponseWriter) {
+func Write(res http.ResponseWriter, data interface{}) {
 	var bytes []byte
 
 	switch t := data.(type) {
@@ -36,11 +36,11 @@ func Write(data interface{}, res http.ResponseWriter) {
 		var err error
 		bytes, err = json.Marshal(data)
 		if err != nil {
-			InternalServerError(res, "Cannot parse a response body: "+err.Error())
+			InternalServerError(res, err)
 			return
 		}
 	}
-	tryWrite(bytes, res)
+	tryWrite(res, bytes)
 }
 
 
@@ -50,7 +50,7 @@ func Write(data interface{}, res http.ResponseWriter) {
 func Created(res http.ResponseWriter, location string) {
 	res.WriteHeader(http.StatusCreated)
 	res.Header().Add("Location", location)
-	Write(MessageRes{"Created a new resource"}, res)
+	Write(res, MessageRes{"Created a new resource"})
 }
 
 // MethodNotAllowed writes a response with 405 Method Not Allowed status. It writes Allow header with available methods
@@ -59,50 +59,50 @@ func Created(res http.ResponseWriter, location string) {
 func MethodNotAllowed(res http.ResponseWriter, allowed []string) {
 	allowHeader(res, allowed)
 	res.WriteHeader(http.StatusMethodNotAllowed)
-	Write("Cannot use the method", res)
+	Write(res, "Cannot use the method")
 }
 
 // NotFound writes a response with 404 Not Found status. If succeeds, callers should just return, because the response
 // is already written. Otherwise, it logs a message and returns.
 func NotFound(res http.ResponseWriter) {
 	res.WriteHeader(http.StatusNotFound)
-	Write("The resource does not exist", res)
+	Write(res, "The resource does not exist")
 }
 
 // InternalServerError writes a response with 500 Internal Server Error status and logs a message. If succeeds, callers
 // should just return, because the response is already written. Otherwise, it logs a message and returns.
-func InternalServerError(res http.ResponseWriter, err string) {
-	log.Println(err)
+func InternalServerError(res http.ResponseWriter, err error) {
+	log.Println(err.Error())
 	res.WriteHeader(http.StatusInternalServerError)
-	Write("Cannot process the request due to a server error", res)
+	Write(res, "Cannot process the request: unexpected error occurred")
 }
 
 // BadRequest writes a response with 400 BadRequest status. If succeeds, callers should just return, because
 // the response is already written. Otherwise, it logs a message and returns.
 func BadRequest(res http.ResponseWriter) {
 	res.WriteHeader(http.StatusBadRequest)
-	Write("The request is invalid", res)
+	Write(res, "The request is invalid")
 }
 
 // Conflict writes a response with 409 Conflict status. If succeeds, callers should just return, because the response
 // is already written. Otherwise, it logs a message and returns.
 func Conflict(res http.ResponseWriter) {
 	res.WriteHeader(http.StatusConflict)
-	Write("A conflict has occurred", res)
+	Write(res, "A conflict has occurred")
 }
 
 // Unauthorized writes a response with 401 Unauthorized status. If succeeds, callers should just return, because
 // the response is already written. Otherwise, it logs a message and returns.
 func Unauthorized(res http.ResponseWriter) {
 	res.WriteHeader(http.StatusUnauthorized)
-	Write("The user is not authenticated", res)
+	Write(res, "The user is not authenticated")
 }
 
 // Forbidden writes a response with 403 Forbidden status. If succeeds, callers should just return, because the response
 // is already written. Otherwise, it logs a message and returns.
 func Forbidden(res http.ResponseWriter) {
 	res.WriteHeader(http.StatusForbidden)
-	Write("The user is not allowed to access the resource", res)
+	Write(res, "The user is not allowed to access the resource")
 }
 
 // NoContent writes a response with 204 No Content status. If succeeds, callers should just return, because the response
@@ -119,7 +119,7 @@ func AllowedNoContent(res http.ResponseWriter, allowed []string) {
 	res.WriteHeader(http.StatusNoContent)
 }
 
-func tryWrite(data []byte, res http.ResponseWriter) {
+func tryWrite(res http.ResponseWriter, data []byte) {
 	if _, err := res.Write(data); err != nil {
 		log.Printf("Cannot write the response body: '%s', data: '%s'\n", err.Error(), data)
 	}
