@@ -16,9 +16,7 @@ type config struct {
 	password string
 }
 
-var conn *pgxpool.Pool
-
-func init() {
+func SetUp() *pgxpool.Pool {
 	cfg := readCfg()
 	c, err := pgxpool.Connect(
 		context.Background(),
@@ -27,12 +25,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	conn = c
-}
 
-// Conn returns a database connection pool shared across application.
-func Conn() *pgxpool.Pool {
-	return conn
+	return c
 }
 
 func readCfg() config {

@@ -26,7 +26,8 @@ type route struct {
 	allowed  []string
 }
 
-type router struct {
+// Router is a structure containing all routes.
+type Router struct {
 	routes []*route
 }
 
@@ -67,13 +68,13 @@ func SmallIDExtr(param string) (interface{}, bool) {
 }
 
 // NewRouter returns a new router with an initialized but empty routes slice.
-func NewRouter() *router {
-	return &router{make([]*route, 0, 16)}
+func NewRouter() *Router {
+	return &Router{make([]*route, 0, 16)}
 }
 
 // NewRoute adds a new route to the router. It takes request URL, parameters extractors in order and handlers map
 // containing actions for every allowed method for the URL.
-func (r *router) NewRoute(path string, extrs []Extractor, handlers map[string]Handler) {
+func (r *Router) NewRoute(path string, extrs []Extractor, handlers map[string]Handler) {
 	var extrCounter int
 	if extrs == nil {
 		extrCounter = 0
@@ -97,7 +98,7 @@ func (r *router) NewRoute(path string, extrs []Extractor, handlers map[string]Ha
 // Match matches a request with a defined route. If there is none, it writes 404 Not Found. If there is a matching
 // router, but it does not have any handler defined for the request method, it writes 405 Method Not Allowed. If the
 // method was Options, it writes 204 No Content with Allow header instead.
-func (r *router) Match(res http.ResponseWriter, req *http.Request) {
+func (r *Router) Match(res http.ResponseWriter, req *http.Request) {
 	segments := strings.Split(req.URL.Path, "/")
 	for _, route := range r.routes {
 		if matched, params := matchRoute(segments, route); matched {
