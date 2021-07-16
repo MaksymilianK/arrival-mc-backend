@@ -2,46 +2,32 @@ package server
 
 import (
 	"context"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/maksymiliank/arrival-mc-backend/db"
 )
 
-type repoI interface {
-	setUp(db *pgxpool.Pool)
-	existsByID(ID int) bool
-	getAll() []Server
+type Repo interface {
+	getAll() ([]server, error)
 }
 
-type repoS struct {
-	all []Server
-	byID map[int]Server
+type repoS struct {}
+
+func NewRepo() Repo {
+	return repoS{}
 }
 
-var repo repoI = &repoS{
-	make([]Server, 0),
-	make(map[int]Server),
-}
-
-func (r *repoS) setUp(db *pgxpool.Pool) {
-	rows, err := db.Query(context.Background(), "SELECT * FROM get_servers()")
+func (repoS) getAll() ([]server, error) {
+	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_servers()")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
+	servers := make([]server, 0)
 	for rows.Next() {
-		var s Server
+		var s server
 		if err := rows.Scan(&s.ID, &s.Name); err != nil {
-			panic(err)
+			return nil, err
 		}
-		r.all = append(r.all, s)
-		r.byID[s.ID] = s
+		servers = append(servers, s)
 	}
-}
-
-func (r *repoS) existsByID(ID int) bool {
-	_, ok := r.byID[ID]
-	return ok
-}
-
-func (r *repoS) getAll() []Server {
-	return r.all
+	return servers, nil
 }

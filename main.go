@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/maksymiliank/arrival-mc-backend/auth"
 	"github.com/maksymiliank/arrival-mc-backend/db"
 	"github.com/maksymiliank/arrival-mc-backend/server"
 	"github.com/maksymiliank/arrival-mc-backend/web"
@@ -18,11 +19,13 @@ func (h Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	dbPool := db.SetUp()
+	db.SetUp()
 
 	r := web.NewRouter()
-	server.SetUp(r, dbPool)
+
+	server.SetUp(r)
+	auth.SetUp(r)
 
 	log.Print("The application is running!")
-	log.Fatal(http.ListenAndServe(":8000", Handler{r}))
+	log.Fatal(http.ListenAndServe(":80", Handler{r}))
 }

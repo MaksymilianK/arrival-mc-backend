@@ -1,13 +1,12 @@
 package server
 
-// Server represents a Minecraft server in the network. There are two special pseudo-servers: Website and Network.
-type Server struct {
+type server struct {
 	ID int `json:"id"`
 	Name string `json:"name"`
 }
 
 type serversRes struct {
-	servers []Server
+	Servers []server `json:"servers"`
 }
 
 const (

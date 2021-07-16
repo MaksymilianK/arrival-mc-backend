@@ -60,11 +60,11 @@ func (p Params) Page(res http.ResponseWriter) (PageReq, bool) {
 		return PageReq{}, false
 	}
 
-	if !v.Valid(
+	if err := v.Validate(
 		page >= 0,
 		size >= 20 && size <= 100,
 		page*size <= 10000,
-	) {
+	); err != nil {
 		BadRequest(res)
 		return PageReq{}, false
 	}
@@ -82,10 +82,10 @@ func (p Params) Sort(res http.ResponseWriter, allowed ...string) (Sort, bool) {
 		return Sort{}, false
 	}
 
-	if !v.Valid(
+	if err := v.Validate(
 		v.InSlice(sortBy, allowed),
 		v.InSlice(sortOrder, SortAsc, SortDesc),
-	) {
+	); err != nil {
 		BadRequest(res)
 		return Sort{}, false
 	}
@@ -102,12 +102,13 @@ func ExtractParams(req *http.Request) Params {
 }
 
 // ExtractSID extracts the Session ID from the request header and returns it if exists. Returns Session ID and true
-// if the cookie has been received; empty string and false otherwise.
-func ExtractSID(req *http.Request) (string, bool) {
+// if the cookie has been received; writes 401 Unauthorized if SID has not been extracted.
+func ExtractSID(res http.ResponseWriter, req *http.Request) (string, bool) {
 	SID, err := req.Cookie("SID")
 	if err == nil {
 		return SID.Value, true
 	} else {
+		Unauthorized(res)
 		return "", false
 	}
 }
@@ -115,7 +116,7 @@ func ExtractSID(req *http.Request) (string, bool) {
 // Read tries to read data from a req body and then parse it from JSON to the structure provided as 'v' argument. If it
 // fails to parse the data, it writes a response with 400 Bad Request status. If it cannot read the date, writes
 // 500 Internal Server Error. Returns true if succeeded; false otherwise.
-func Read(v interface{}, res http.ResponseWriter, req *http.Request) bool {
+func Read(res http.ResponseWriter, req *http.Request, v interface{}) bool {
 	data := make([]byte, req.ContentLength)
 	if _, err := req.Body.Read(data); err != nil && err != io.EOF {
 		InternalServerError(res, err)

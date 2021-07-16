@@ -1,28 +1,30 @@
 package server
 
 import (
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/maksymiliank/arrival-mc-backend/web"
 	"net/http"
 )
 
-// SetUp adds new routes and inits the whole package
-func SetUp(r *web.Router, db *pgxpool.Pool) ServiceI {
+type Handler struct {
+	service Service
+}
+
+// SetUp adds new routes and initializes the whole package
+func SetUp(r *web.Router) Service {
+	service := NewService(NewRepo())
+	handler := Handler{service}
+
 	r.NewRoute(
 		"/servers",
 		nil,
 		map[string]web.Handler{
-			http.MethodGet: getAll,
+			http.MethodGet: handler.getAll,
 		},
 	)
 
-	repo.setUp(db)
 	return service
 }
 
-func getAll(res http.ResponseWriter, _ *http.Request, _ web.PathVars) {
-	web.Write(
-		res,
-		serversRes{service.All()},
-	)
+func (h Handler) getAll(res http.ResponseWriter, _ *http.Request, _ web.PathVars) {
+	web.Write(res, h.service.all())
 }

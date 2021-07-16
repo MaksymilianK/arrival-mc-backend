@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"gopkg.in/yaml.v2"
@@ -16,7 +17,10 @@ type config struct {
 	password string
 }
 
-func SetUp() *pgxpool.Pool {
+var ErrPersistence = errors.New("error while querying db")
+var conn *pgxpool.Pool
+
+func SetUp() {
 	cfg := readCfg()
 	c, err := pgxpool.Connect(
 		context.Background(),
@@ -25,8 +29,11 @@ func SetUp() *pgxpool.Pool {
 	if err != nil {
 		panic(err)
 	}
+	conn = c
+}
 
-	return c
+func Conn() *pgxpool.Pool {
+	return conn
 }
 
 func readCfg() config {

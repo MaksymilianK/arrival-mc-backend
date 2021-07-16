@@ -119,6 +119,24 @@ func AllowedNoContent(res http.ResponseWriter, allowed []string) {
 	res.WriteHeader(http.StatusNoContent)
 }
 
+func OnError(res http.ResponseWriter, err error) {
+	switch err {
+	case ErrBadData:
+		res.WriteHeader(http.StatusBadRequest)
+	case ErrConflict:
+		res.WriteHeader(http.StatusConflict)
+	case ErrNotFound:
+		res.WriteHeader(http.StatusNotFound)
+	case ErrAuth:
+		res.WriteHeader(http.StatusUnauthorized)
+	case ErrPerm:
+		res.WriteHeader(http.StatusForbidden)
+	default:
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+	Write(res, err.Error())
+}
+
 func tryWrite(res http.ResponseWriter, data []byte) {
 	if _, err := res.Write(data); err != nil {
 		log.Printf("Cannot write the response body: '%s', data: '%s'\n", err.Error(), data)
