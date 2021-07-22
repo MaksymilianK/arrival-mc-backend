@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
-	"github.com/maksymiliank/arrival-mc-backend/db"
-	"github.com/maksymiliank/arrival-mc-backend/web"
+	db2 "github.com/maksymiliank/arrival-mc-backend/util/db"
+	web2 "github.com/maksymiliank/arrival-mc-backend/util/web"
 )
 
 type Repo interface {
@@ -32,7 +32,7 @@ type perm struct {
 }
 
 func (repoS) getAllWebRanks() ([]rankWithPerms, error) {
-	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_ranks_with_web_perms()")
+	rows, err := db2.Conn().Query(context.Background(), "SELECT * FROM get_ranks_with_web_perms()")
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (repoS) getAllWebRanks() ([]rankWithPerms, error) {
 }
 
 func (repoS) getAllPerms(rank int) (map[int][]string, error) {
-	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_perms($1)", rank)
+	rows, err := db2.Conn().Query(context.Background(), "SELECT * FROM get_perms($1)", rank)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (repoS) getAllPerms(rank int) (map[int][]string, error) {
 }
 
 func (repoS) createRank(rank rankCreation) (int, error) {
-	row := db.Conn().QueryRow(
+	row := db2.Conn().QueryRow(
 		context.Background(),
 		"SELECT * FROM create_rank($1, $2, $3, $4, $5)",
 		rank.Level, rank.Name, rank.DisplayName, rank.ChatFormat, permsMapToSlice(rank.Perms),
@@ -84,11 +84,11 @@ func (repoS) createRank(rank rankCreation) (int, error) {
 }
 
 func (repoS) removeRank(ID int) error {
-	_, err := db.Conn().Exec(context.Background(), "SELECT * FROM remove_rank($1)", ID)
+	_, err := db2.Conn().Exec(context.Background(), "SELECT * FROM remove_rank($1)", ID)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == db.ErrNoDataFound {
-			return web.ErrNotFound
+		if errors.As(err, &pgErr) && pgErr.Code == db2.ErrNoDataFound {
+			return web2.ErrNotFound
 		}
 	}
 	return err
@@ -115,7 +115,7 @@ func (repoS) modifyRank(ID int, rank rankModification) error {
 		chatFormat.Status = pgtype.Null
 	}
 
-	_, err := db.Conn().Exec(
+	_, err := db2.Conn().Exec(
 		context.Background(),
 		"SELECT * FROM modify_rank($1, $2, $3, $4, $5, $6, $7)",
 		ID, level, name, displayName, chatFormat, permsMapToSlice(rank.RemPerms), permsMapToSlice(rank.AddedPerms),
@@ -124,12 +124,12 @@ func (repoS) modifyRank(ID int, rank rankModification) error {
 }
 
 func (repoS) getPlayerCredentials(nick string) (playerCredentials, error) {
-	row := db.Conn().QueryRow(context.Background(), "SELECT * FROM get_auth_data($1)", nick)
+	row := db2.Conn().QueryRow(context.Background(), "SELECT * FROM get_auth_data($1)", nick)
 
 	var data playerCredentials
 	if err := row.Scan(&data.id, &data.passHash, &data.rank); err != nil {
 		if err == pgx.ErrNoRows {
-			return playerCredentials{}, web.ErrNotFound
+			return playerCredentials{}, web2.ErrNotFound
 		} else {
 			return playerCredentials{}, err
 		}

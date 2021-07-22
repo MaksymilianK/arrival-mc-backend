@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/maksymiliank/arrival-mc-backend/web"
+	web2 "github.com/maksymiliank/arrival-mc-backend/util/web"
 	"net/http"
 )
 
@@ -10,14 +10,14 @@ type Handler struct {
 }
 
 // SetUp adds new routes and initializes the whole package
-func SetUp(r *web.Router) Service {
+func SetUp(r *web2.Router) Service {
 	service := NewService(NewRepo())
 	handler := Handler{service}
 
 	r.NewRoute(
 		"/servers",
 		nil,
-		map[string]web.Handler{
+		map[string]web2.Handler{
 			http.MethodGet: handler.getAll,
 		},
 	)
@@ -25,6 +25,6 @@ func SetUp(r *web.Router) Service {
 	return service
 }
 
-func (h Handler) getAll(res http.ResponseWriter, _ *http.Request, _ web.PathVars) {
-	web.Write(res, h.service.all())
+func (h Handler) getAll(res http.ResponseWriter, _ *http.Request, _ web2.PathVars) {
+	web2.Write(res, h.service.all())
 }

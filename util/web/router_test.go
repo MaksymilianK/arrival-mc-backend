@@ -32,7 +32,7 @@ func TestRouter(t *testing.T) {
 
 	r := NewRouter()
 	r.NewRoute("/route1/seg1/seg2", nil, map[string]Handler{
-		http.MethodGet: fakeHandler("0"),
+		http.MethodGet:    fakeHandler("0"),
 		http.MethodDelete: fakeHandler("1"),
 	})
 	r.NewRoute("/route2/Thonem/Thonem", nil, map[string]Handler{

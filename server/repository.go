@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"github.com/maksymiliank/arrival-mc-backend/db"
+	db2 "github.com/maksymiliank/arrival-mc-backend/util/db"
 )
 
 type Repo interface {
@@ -16,7 +16,7 @@ func NewRepo() Repo {
 }
 
 func (repoS) getAll() ([]server, error) {
-	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_servers()")
+	rows, err := db2.Conn().Query(context.Background(), "SELECT * FROM get_servers()")
 	if err != nil {
 		return nil, err
 	}

@@ -2,9 +2,11 @@ package main
 
 import (
 	"github.com/maksymiliank/arrival-mc-backend/auth"
-	"github.com/maksymiliank/arrival-mc-backend/db"
+	"github.com/maksymiliank/arrival-mc-backend/conn"
 	"github.com/maksymiliank/arrival-mc-backend/server"
-	"github.com/maksymiliank/arrival-mc-backend/web"
+	"github.com/maksymiliank/arrival-mc-backend/util"
+	"github.com/maksymiliank/arrival-mc-backend/util/db"
+	"github.com/maksymiliank/arrival-mc-backend/util/web"
 	"log"
 	"net/http"
 )
@@ -19,9 +21,14 @@ func (h Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	db.SetUp()
+	cfg, err := util.ReadCfg()
+	if err != nil {
+		panic(err)
+	}
+	db.SetUp(cfg.DB)
 
 	r := web.NewRouter()
+	_ = conn.SetUp(r, cfg.GameAllowedIP)
 
 	server.SetUp(r)
 	auth.SetUp(r)

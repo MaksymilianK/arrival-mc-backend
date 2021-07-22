@@ -2,7 +2,7 @@ package web
 
 import (
 	"encoding/json"
-	v "github.com/maksymiliank/arrival-mc-backend/validator"
+	"github.com/maksymiliank/arrival-mc-backend/util/validator"
 	"io"
 	"net/http"
 	"strconv"
@@ -60,7 +60,7 @@ func (p Params) Page(res http.ResponseWriter) (PageReq, bool) {
 		return PageReq{}, false
 	}
 
-	if err := v.Validate(
+	if err := validator.Validate(
 		page >= 0,
 		size >= 20 && size <= 100,
 		page*size <= 10000,
@@ -82,9 +82,9 @@ func (p Params) Sort(res http.ResponseWriter, allowed ...string) (Sort, bool) {
 		return Sort{}, false
 	}
 
-	if err := v.Validate(
-		v.InSlice(sortBy, allowed),
-		v.InSlice(sortOrder, SortAsc, SortDesc),
+	if err := validator.Validate(
+		validator.InSlice(sortBy, allowed),
+		validator.InSlice(sortOrder, SortAsc, SortDesc),
 	); err != nil {
 		BadRequest(res)
 		return Sort{}, false

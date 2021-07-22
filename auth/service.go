@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"github.com/maksymiliank/arrival-mc-backend/db"
 	"github.com/maksymiliank/arrival-mc-backend/server"
-	v "github.com/maksymiliank/arrival-mc-backend/validator"
-	"github.com/maksymiliank/arrival-mc-backend/web"
+	db2 "github.com/maksymiliank/arrival-mc-backend/util/db"
+	"github.com/maksymiliank/arrival-mc-backend/util/validator"
+	web2 "github.com/maksymiliank/arrival-mc-backend/util/web"
 	"log"
 	"regexp"
 	"sort"
@@ -78,14 +78,14 @@ func (s *serviceS) RequireAuth(SID string) (*Player, bool) {
 func (s *serviceS) RequirePerm(SID string, perm string) (*Player, error) {
 	p, ok := s.sessions.find(SID)
 	if !ok {
-		return nil, web.ErrAuth
+		return nil, web2.ErrAuth
 	}
 
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
 	if !s.HasPerm(p, perm) {
-		return nil, web.ErrPerm
+		return nil, web2.ErrPerm
 	}
 
 	return p, nil
@@ -104,7 +104,7 @@ func (s *serviceS) rankWithWebPerms(ID int) (*rankWithPerms, error) {
 	defer s.lock.RUnlock()
 
 	if !s.RankExists(ID) {
-		return nil, v.ErrNotFound
+		return nil, validator.ErrNotFound
 	}
 	return s.ranksWithWebPerms[ID], nil
 }
@@ -121,13 +121,13 @@ func (s *serviceS) oneRank(ID int) (rankFull, error) {
 	defer s.lock.RUnlock()
 
 	if !s.RankExists(ID) {
-		return rankFull{}, v.ErrNotFound
+		return rankFull{}, validator.ErrNotFound
 	}
 
 	perms, err := s.repo.getAllPerms(ID)
 	if err != nil {
 		log.Println(err)
-		return rankFull{}, db.ErrPersistence
+		return rankFull{}, db2.ErrPersistence
 	}
 
 	r := s.ranksWithWebPerms[ID]
@@ -147,7 +147,7 @@ func (s *serviceS) createRank(rank rankCreation) (int, error) {
 
 	ID, err := s.repo.createRank(rank)
 	if err != nil {
-		return 0, db.ErrPersistence
+		return 0, db2.ErrPersistence
 	}
 
 	perms := rank.Perms[server.WebsiteID]
@@ -217,7 +217,7 @@ func (s *serviceS) modifyRank(ID int, rank rankModification) error {
 
 	err := s.repo.modifyRank(ID, rank)
 	if err != nil {
-		return db.ErrPersistence
+		return db2.ErrPersistence
 	}
 
 	if rank.Level != 0 {
@@ -244,13 +244,13 @@ func (s *serviceS) modifyRank(ID int, rank rankModification) error {
 func (s *serviceS) current(SID string) (playerAuthRes, error) {
 	p, ok := s.sessions.find(SID)
 	if !ok {
-		return playerAuthRes{}, web.ErrNotFound
+		return playerAuthRes{}, web2.ErrNotFound
 	}
 	return playerAuthRes{p.id, p.nick, s.ranksWithWebPerms[p.rank.id]}, nil
 }
 
 func (s *serviceS) signIn(data loginForm) (playerAuthRes, string, error) {
-	if err := v.Validate(
+	if err := validator.Validate(
 		nickRegex.MatchString(data.Nick),
 		len(data.Pass) > 5 && len(data.Pass) <= 50,
 	); err != nil {
@@ -264,7 +264,7 @@ func (s *serviceS) signIn(data loginForm) (playerAuthRes, string, error) {
 
 	if err := s.crypto.verifyPass(data.Pass, p.passHash); err != nil {
 		if err == ErrWrongPass {
-			return playerAuthRes{}, "", web.ErrAuth
+			return playerAuthRes{}, "", web2.ErrAuth
 		} else {
 			return playerAuthRes{}, "", err
 		}
@@ -341,9 +341,9 @@ func (s *serviceS) orderPerms(startIndex int) {
 }
 
 func validateCreation(rank rankCreation) error {
-	if err := v.Validate(
+	if err := validator.Validate(
 		rank.Level > 0 && rank.Level < RankLvlOwner,
-		!v.InSlice(rank.Level, RankLvlDef, RankLvlOwner),
+		!validator.InSlice(rank.Level, RankLvlDef, RankLvlOwner),
 		len(rank.Name) > 0 && len(rank.Name) <= 30,
 		len(rank.DisplayName) > 0 && len(rank.DisplayName) <= 75,
 		len(rank.ChatFormat) > 0 && len(rank.ChatFormat) <= 200,
@@ -355,11 +355,11 @@ func validateCreation(rank rankCreation) error {
 }
 
 func validateModification(ID int, rank rankModification) error {
-	if err := v.Validate(
-		(ID > 0 && ID < 32768) || v.InSlice(ID, RankIDDef, RankIDOwner),
+	if err := validator.Validate(
+		(ID > 0 && ID < 32768) || validator.InSlice(ID, RankIDDef, RankIDOwner),
 		rank.Level >= 0 && rank.Level < RankLvlOwner,
-		rank.Level == 0 || !v.InSlice(ID, RankIDDef, RankIDOwner),
-		!v.InSlice(rank.Level, RankLvlDef, RankLvlOwner),
+		rank.Level == 0 || !validator.InSlice(ID, RankIDDef, RankIDOwner),
+		!validator.InSlice(rank.Level, RankLvlDef, RankLvlOwner),
 		len(rank.Name) >= 0 && len(rank.Name) <= 30,
 		len(rank.DisplayName) >= 0 && len(rank.DisplayName) <= 75,
 		len(rank.ChatFormat) >= 0 && len(rank.ChatFormat) <= 200,
@@ -371,8 +371,8 @@ func validateModification(ID int, rank rankModification) error {
 
 	if rank.RemPerms != nil && rank.RemPerms[server.WebsiteID] != nil {
 		for _, p := range rank.RemPerms[server.WebsiteID] {
-			if v.InSlice(p, PermRankView, PermRankModify) {
-				return v.ErrValidation
+			if validator.InSlice(p, PermRankView, PermRankModify) {
+				return validator.ErrValidation
 			}
 		}
 	}

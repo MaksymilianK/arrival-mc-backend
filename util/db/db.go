@@ -5,8 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"github.com/maksymiliank/arrival-mc-backend/util"
 )
 
 type config struct {
@@ -20,11 +19,10 @@ type config struct {
 var ErrPersistence = errors.New("error while querying db")
 var conn *pgxpool.Pool
 
-func SetUp() {
-	cfg := readCfg()
+func SetUp(cfg util.DBConfig) {
 	c, err := pgxpool.Connect(
 		context.Background(),
-		fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", cfg.user, cfg.password, cfg.host, cfg.port, cfg.database),
+		fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database),
 	)
 	if err != nil {
 		panic(err)
@@ -34,17 +32,4 @@ func SetUp() {
 
 func Conn() *pgxpool.Pool {
 	return conn
-}
-
-func readCfg() config {
-	data, err := ioutil.ReadFile("./db-config.yaml")
-	if err != nil {
-		panic(err)
-	}
-
-	var cfg config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		panic(err)
-	}
-	return cfg
 }
