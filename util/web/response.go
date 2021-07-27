@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -23,22 +24,33 @@ func GlobalHeaders(res http.ResponseWriter) {
 	res.Header().Add("Content-Type", "application/json; charset=UTF-8")
 }
 
+func ExtendSession(res http.ResponseWriter, SID string, maxAge int) {
+	res.Header().Set(
+		"Set-Cookie",
+		fmt.Sprintf("SID=%s; max-age=%d; path=/", SID, maxAge),
+	)
+}
+
 // Write tries to parse data to JSON and then write it as a response body with the OK status if no status has been set
 // on response. If succeeds, callers should just return, because the response is already written. Otherwise, it logs
 // a message and returns.
 func Write(res http.ResponseWriter, data interface{}) {
 	var bytes []byte
 
+	var dataObj interface{}
+
 	switch t := data.(type) {
 	case string:
-		bytes = []byte(t)
+		dataObj = MessageRes{t}
 	default:
-		var err error
-		bytes, err = json.Marshal(data)
-		if err != nil {
-			InternalServerError(res, err)
-			return
-		}
+		dataObj = data
+	}
+
+	var err error
+	bytes, err = json.Marshal(dataObj)
+	if err != nil {
+		InternalServerError(res, err)
+		return
 	}
 	tryWrite(res, bytes)
 }
@@ -50,7 +62,7 @@ func Write(res http.ResponseWriter, data interface{}) {
 func Created(res http.ResponseWriter, location string) {
 	res.WriteHeader(http.StatusCreated)
 	res.Header().Add("Location", location)
-	Write(res, MessageRes{"Created a new resource"})
+	Write(res, "Created a new resource")
 }
 
 // MethodNotAllowed writes a response with 405 Method Not Allowed status. It writes Allow header with available methods

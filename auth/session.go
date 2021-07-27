@@ -18,7 +18,7 @@ type SessionManager interface {
 	monitor()
 	new(p *Player) (string, error)
 	find(SID string) (*Player, bool)
-	extendIfExists(SID string)
+	extendIfExists(SID string) bool
 	remove(SID string) bool
 }
 
@@ -29,7 +29,7 @@ type sessionManagerS struct{
 	lock sync.RWMutex
 }
 
-const sessionExpiration = 15 * time.Minute
+const SessionLifetime = 15 * time.Minute
 const monitorDuration = 30 * time.Second
 
 func NewSessionManager(crypto Crypto) SessionManager {
@@ -55,7 +55,9 @@ func (s *sessionManagerS) new(p *Player) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	session := &session{SID, p, time.Now().Add(sessionExpiration)}
+
+	expiration := time.Now().Add(SessionLifetime)
+	session := &session{SID, p, expiration}
 
 	s.lock.Lock()
 	s.bySID[SID] = session
@@ -77,16 +79,17 @@ func (s *sessionManagerS) find(SID string) (*Player, bool) {
 	}
 }
 
-func (s *sessionManagerS) extendIfExists(SID string) {
+func (s *sessionManagerS) extendIfExists(SID string) bool {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	session, ok := s.bySID[SID]
 	if ok {
 		s.byExpiration.Remove(session)
-		session.expiration = time.Now().Add(sessionExpiration)
+		session.expiration = time.Now().Add(SessionLifetime)
 		s.byExpiration.Put(session, struct{}{})
 	}
+	return ok
 }
 
 func (s *sessionManagerS) remove(SID string) bool {

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/argon2"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -17,8 +16,8 @@ var (
 	ErrInvalidHash = errors.New("hash is invalid")
 )
 
-var argonParallelism = uint8(runtime.NumCPU())
 const (
+	argonParallelism = uint8(1)
 	argonMemory = uint32(64 * 1024)
 	argonIterations = uint32(1)
 	argonHashLength = uint32(16)

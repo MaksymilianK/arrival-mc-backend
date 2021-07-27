@@ -102,15 +102,13 @@ func (r *Router) Match(res http.ResponseWriter, req *http.Request) {
 	segments := strings.Split(req.URL.Path, "/")
 	for _, route := range r.routes {
 		if matched, params := matchRoute(segments, route); matched {
-			if !methodAllowed(req.Method, route.handlers) {
-				MethodNotAllowed(res, route.allowed)
-				return
-			} else if req.Method == http.MethodOptions {
+			if req.Method == http.MethodOptions {
 				AllowedNoContent(res, route.allowed)
-				return
+			} else if methodAllowed(req.Method, route.handlers) {
+				route.handlers[req.Method](res, req, params)
+			} else {
+				MethodNotAllowed(res, route.allowed)
 			}
-
-			route.handlers[req.Method](res, req, params)
 			return
 		}
 	}

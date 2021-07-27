@@ -1,8 +1,7 @@
 package auth
 
 import (
-	"fmt"
-	web2 "github.com/maksymiliank/arrival-mc-backend/util/web"
+	"github.com/maksymiliank/arrival-mc-backend/util/web"
 	"net/http"
 	"strconv"
 )
@@ -11,25 +10,25 @@ type Handler struct {
 	service Service
 }
 
-func SetUp(r *web2.Router) Service {
+func SetUp(r *web.Router) Service {
 	crypto := NewCrypto()
 	sessions := NewSessionManager(crypto)
-	sessions.monitor()
+	go sessions.monitor()
 	service := NewService(NewRepo(), sessions, crypto)
 	handler := Handler{service}
 
 	r.NewRoute(
 		"/ranks",
 		nil,
-		map[string]web2.Handler{
+		map[string]web.Handler{
 			http.MethodGet: handler.getAll,
 			http.MethodPost: handler.createOne,
 		},
 	)
 	r.NewRoute(
 		"/ranks/:id",
-		[]web2.Extractor{web2.IntExtr},
-		map[string]web2.Handler{
+		[]web.Extractor{web.IntExtr},
+		map[string]web.Handler{
 			http.MethodGet: handler.getOne,
 			http.MethodDelete: handler.removeOne,
 			http.MethodPut: handler.modifyOne,
@@ -39,7 +38,7 @@ func SetUp(r *web2.Router) Service {
 	r.NewRoute(
 		"/auth/current",
 		nil,
-		map[string]web2.Handler{
+		map[string]web.Handler{
 			http.MethodGet: handler.getCurrent,
 			http.MethodDelete: handler.signOut,
 			http.MethodPut: handler.signIn,
@@ -49,115 +48,116 @@ func SetUp(r *web2.Router) Service {
 	return service
 }
 
-func (h Handler) getAll(res http.ResponseWriter, _ *http.Request, _ web2.PathVars) {
-	web2.Write(res, h.service.allRanks())
+func (h Handler) getAll(res http.ResponseWriter, _ *http.Request, _ web.PathVars) {
+	web.Write(res, h.service.allRanks())
 }
 
-func (h Handler) createOne(res http.ResponseWriter, req *http.Request, _ web2.PathVars) {
-	SID, ok := web2.ExtractSID(res, req)
+func (h Handler) createOne(res http.ResponseWriter, req *http.Request, _ web.PathVars) {
+	SID, ok := web.RequireSID(res, req)
 	if !ok {
 		return
 	}
 
 	if _, err := h.service.RequirePerm(SID, ""); err != nil {
-		web2.OnError(res, err)
+		web.OnError(res, err)
 		return
 	}
 
 	var rank rankCreation
-	if !web2.Read(res, req, &rank) {
+	if !web.Read(res, req, &rank) {
 		return
 	}
 
 	ID, err := h.service.createRank(rank)
 	if err != nil {
-		web2.OnError(res, err)
+		web.OnError(res, err)
 		return
 	}
 
-	web2.Created(res, strconv.Itoa(ID))
+	web.Created(res, strconv.Itoa(ID))
 }
 
-func (h Handler) getOne(res http.ResponseWriter, _ *http.Request, vars web2.PathVars) {
+func (h Handler) getOne(res http.ResponseWriter, _ *http.Request, vars web.PathVars) {
 	ID := vars["id"].(int)
 
 	rank, err := h.service.oneRank(ID)
 	if err != nil {
-		web2.OnError(res, err)
+		web.OnError(res, err)
 		return
 	}
 
-	web2.Write(res, rank)
+	web.Write(res, rank)
 }
 
-func (h Handler) modifyOne(res http.ResponseWriter, req *http.Request, vars web2.PathVars) {
+func (h Handler) modifyOne(res http.ResponseWriter, req *http.Request, vars web.PathVars) {
 	ID := vars["id"].(int)
 
 	var rank rankModification
-	if !web2.Read(res, req, &rank) {
+	if !web.Read(res, req, &rank) {
 		return
 	}
 
 	if err := h.service.modifyRank(ID, rank); err != nil {
-		web2.OnError(res, err)
+		web.OnError(res, err)
 		return
 	}
 
-	web2.NoContent(res)
+	web.NoContent(res)
 }
 
-func (h Handler) removeOne(res http.ResponseWriter, _ *http.Request, vars web2.PathVars) {
+func (h Handler) removeOne(res http.ResponseWriter, _ *http.Request, vars web.PathVars) {
 	ID := vars["id"].(int)
 
 	if err := h.service.removeRank(ID); err != nil {
-		web2.OnError(res, err)
+		web.OnError(res, err)
 		return
 	}
 
-	web2.NoContent(res)
+	web.NoContent(res)
 }
 
-func (h Handler) getCurrent(res http.ResponseWriter, req *http.Request, _ web2.PathVars) {
-	SID, ok := web2.ExtractSID(res, req)
+func (h Handler) getCurrent(res http.ResponseWriter, req *http.Request, _ web.PathVars) {
+	SID, ok := web.RequireSID(res, req)
 	if !ok {
 		return
 	}
 
 	p, err := h.service.current(SID)
 	if err != nil {
-		web2.OnError(res, err)
+		web.OnError(res, err)
 		return
 	}
 
-	web2.Write(res, p)
+	web.Write(res, p)
 }
 
-func (h Handler) signOut(res http.ResponseWriter, req *http.Request, _ web2.PathVars) {
-	SID, ok := web2.ExtractSID(res, req)
+func (h Handler) signOut(res http.ResponseWriter, req *http.Request, _ web.PathVars) {
+	SID, ok := web.RequireSID(res, req)
 	if !ok {
-		web2.NoContent(res)
+		web.NoContent(res)
 		return
 	}
 
 	if h.service.signOut(SID) {
-		web2.Write(res, "Successfully logged out")
+		web.ExtendSession(res, SID, 0)
+		web.Write(res, "Successfully logged out")
 	} else {
-		web2.NoContent(res)
+		web.NoContent(res)
 	}
 }
 
-func (h Handler) signIn(res http.ResponseWriter, req *http.Request, _ web2.PathVars) {
+func (h Handler) signIn(res http.ResponseWriter, req *http.Request, _ web.PathVars) {
 	var data loginForm
-	if !web2.Read(res, req, &data) {
+	if !web.Read(res, req, &data) {
 		return
 	}
 
 	p, SID, err := h.service.signIn(data)
 	if err != nil {
-		web2.OnError(res, err)
+		web.OnError(res, err)
 		return
 	}
 
-	res.Header().Add("Set-Cookie", fmt.Sprintf("SID=%s;path=/", SID))
-	web2.Write(res, p)
+	web.ExtendSession(res, SID, int(SessionLifetime.Seconds()))
+	web.Write(res, p)
 }

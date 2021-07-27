@@ -52,8 +52,7 @@ type Player struct {
 	rank *Rank
 }
 
-type playerAuthRes struct {
-	ID int `json:"id"`
+type playerMin struct {
 	Nick string `json:"nick"`
 	Rank *rankWithPerms `json:"rank"`
 }
@@ -65,8 +64,8 @@ type playerCredentials struct {
 }
 
 type loginForm struct {
-	Nick string
-	Pass string
+	Nick     string
+	Password string
 }
 
 const RankLvlDef = 1000

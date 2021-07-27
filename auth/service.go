@@ -2,9 +2,9 @@ package auth
 
 import (
 	"github.com/maksymiliank/arrival-mc-backend/server"
-	db2 "github.com/maksymiliank/arrival-mc-backend/util/db"
+	"github.com/maksymiliank/arrival-mc-backend/util/db"
 	"github.com/maksymiliank/arrival-mc-backend/util/validator"
-	web2 "github.com/maksymiliank/arrival-mc-backend/util/web"
+	"github.com/maksymiliank/arrival-mc-backend/util/web"
 	"log"
 	"regexp"
 	"sort"
@@ -17,6 +17,8 @@ type Service interface {
 	RequireAuth(SID string) (*Player, bool)
 	RequirePerm(SID string, perm string) (*Player, error)
 	HasPerm(p *Player, perm string) bool
+	NickValid(nick string) bool
+	TryExtendSession(SID string) bool
 
 	rankWithWebPerms(ID int) (*rankWithPerms, error)
 	allRanks() minRanks
@@ -25,8 +27,8 @@ type Service interface {
 	removeRank(ID int) error
 	modifyRank(ID int, rank rankModification) error
 
-	current(SID string) (playerAuthRes, error)
-	signIn(data loginForm) (playerAuthRes, string, error)
+	current(SID string) (playerMin, error)
+	signIn(data loginForm) (playerMin, string, error)
 	signOut(SID string) bool
 }
 
@@ -78,14 +80,14 @@ func (s *serviceS) RequireAuth(SID string) (*Player, bool) {
 func (s *serviceS) RequirePerm(SID string, perm string) (*Player, error) {
 	p, ok := s.sessions.find(SID)
 	if !ok {
-		return nil, web2.ErrAuth
+		return nil, web.ErrAuth
 	}
 
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
 	if !s.HasPerm(p, perm) {
-		return nil, web2.ErrPerm
+		return nil, web.ErrPerm
 	}
 
 	return p, nil
@@ -97,6 +99,14 @@ func (s *serviceS) HasPerm(p *Player, perm string) bool {
 
 	_, ok := p.rank.effectivePerms[perm]
 	return ok
+}
+
+func (s *serviceS) NickValid(nick string) bool {
+	return nickRegex.MatchString(nick)
+}
+
+func (s *serviceS) TryExtendSession(SID string) bool {
+	return s.sessions.extendIfExists(SID)
 }
 
 func (s *serviceS) rankWithWebPerms(ID int) (*rankWithPerms, error) {
@@ -127,7 +137,7 @@ func (s *serviceS) oneRank(ID int) (rankFull, error) {
 	perms, err := s.repo.getAllPerms(ID)
 	if err != nil {
 		log.Println(err)
-		return rankFull{}, db2.ErrPersistence
+		return rankFull{}, db.ErrPersistence
 	}
 
 	r := s.ranksWithWebPerms[ID]
@@ -147,7 +157,7 @@ func (s *serviceS) createRank(rank rankCreation) (int, error) {
 
 	ID, err := s.repo.createRank(rank)
 	if err != nil {
-		return 0, db2.ErrPersistence
+		return 0, db.ErrPersistence
 	}
 
 	perms := rank.Perms[server.WebsiteID]
@@ -217,7 +227,7 @@ func (s *serviceS) modifyRank(ID int, rank rankModification) error {
 
 	err := s.repo.modifyRank(ID, rank)
 	if err != nil {
-		return db2.ErrPersistence
+		return db.ErrPersistence
 	}
 
 	if rank.Level != 0 {
@@ -241,32 +251,32 @@ func (s *serviceS) modifyRank(ID int, rank rankModification) error {
 	return nil
 }
 
-func (s *serviceS) current(SID string) (playerAuthRes, error) {
+func (s *serviceS) current(SID string) (playerMin, error) {
 	p, ok := s.sessions.find(SID)
 	if !ok {
-		return playerAuthRes{}, web2.ErrNotFound
+		return playerMin{}, web.ErrNotFound
 	}
-	return playerAuthRes{p.id, p.nick, s.ranksWithWebPerms[p.rank.id]}, nil
+	return playerMin{p.nick, s.ranksWithWebPerms[p.rank.id]}, nil
 }
 
-func (s *serviceS) signIn(data loginForm) (playerAuthRes, string, error) {
+func (s *serviceS) signIn(data loginForm) (playerMin, string, error) {
 	if err := validator.Validate(
 		nickRegex.MatchString(data.Nick),
-		len(data.Pass) > 5 && len(data.Pass) <= 50,
+		len(data.Password) > 5 && len(data.Password) <= 50,
 	); err != nil {
-		return playerAuthRes{}, "", err
+		return playerMin{}, "", err
 	}
 
 	p, err := s.repo.getPlayerCredentials(data.Nick)
 	if err != nil {
-		return playerAuthRes{}, "", err
+		return playerMin{}, "", err
 	}
 
-	if err := s.crypto.verifyPass(data.Pass, p.passHash); err != nil {
+	if err := s.crypto.verifyPass(data.Password, p.passHash); err != nil {
 		if err == ErrWrongPass {
-			return playerAuthRes{}, "", web2.ErrAuth
+			return playerMin{}, "", web.ErrAuth
 		} else {
-			return playerAuthRes{}, "", err
+			return playerMin{}, "", err
 		}
 	}
 
@@ -275,10 +285,10 @@ func (s *serviceS) signIn(data loginForm) (playerAuthRes, string, error) {
 
 	SID, err := s.sessions.new(&Player{p.id, data.Nick, s.byID[p.rank]})
 	if err != nil {
-		return playerAuthRes{}, "", err
+		return playerMin{}, "", err
 	}
 
-	return playerAuthRes{p.id, data.Nick, s.ranksWithWebPerms[p.rank]}, SID, nil
+	return playerMin{data.Nick, s.ranksWithWebPerms[p.rank]}, SID, nil
 }
 
 func (s *serviceS) signOut(SID string) bool {

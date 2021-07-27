@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // Params are query parameters of a HTTP request.
@@ -37,26 +38,45 @@ func (p Params) Str(name string) (string, bool) {
 
 // Int returns a query parameter as an integer. If the parameter is not present or cannot be converted to int, returns
 // false.
-func (p Params) Int(name string) (int, bool) {
+func (p Params) Int(res http.ResponseWriter, name string) (int, error) {
 	param, ok := p.Str(name)
 	if !ok {
-		return 0, false
+		return 0, ErrNotFound
 	}
 
 	intParam, err := strconv.Atoi(param)
 	if err != nil {
-		return 0, false
+		BadRequest(res)
+		return 0, ErrBadData
 	}
-	return intParam, true
+	return intParam, nil
+}
+
+// Time returns a query parameter as a time struct. If the parameter is not present or cannot be converted, returns
+// false.
+func (p Params) Time(res http.ResponseWriter, name string) (time.Time, error) {
+	param, ok := p.Str(name)
+	if !ok {
+		return time.Time{}, ErrNotFound
+	}
+
+	timeParam, err := time.Parse(time.RFC822, param)
+	if err != nil {
+		BadRequest(res)
+		return time.Time{}, ErrBadData
+	}
+	return timeParam, nil
 }
 
 // Page tries to extract pagination data from a request. If pagination is invalid, e.g. on or more of parameters
 // are absent or have wrong format, writes a response with 400 Bad Request status.
 func (p Params) Page(res http.ResponseWriter) (PageReq, bool) {
-	page, ok1 := p.Int("page")
-	size, ok2 := p.Int("size")
-	if !ok1 || !ok2 {
+	page, err1 := p.Int(res, "page")
+	size, err2 := p.Int(res, "size")
+	if err1 == ErrNotFound || err2 == ErrNotFound {
 		BadRequest(res)
+		return PageReq{}, false
+	} else if err1 == ErrBadData || err2 == ErrBadData {
 		return PageReq{}, false
 	}
 
@@ -102,15 +122,24 @@ func ExtractParams(req *http.Request) Params {
 }
 
 // ExtractSID extracts the Session ID from the request header and returns it if exists. Returns Session ID and true
-// if the cookie has been received; writes 401 Unauthorized if SID has not been extracted.
-func ExtractSID(res http.ResponseWriter, req *http.Request) (string, bool) {
+// if the cookie has been received; returns empty string and false if SID has not been extracted.
+func ExtractSID(req *http.Request) (string, bool) {
 	SID, err := req.Cookie("SID")
-	if err == nil {
-		return SID.Value, true
-	} else {
+	if err != nil {
+		return "", false
+	}
+	return SID.Value, true
+}
+
+// RequireSID extracts the Session ID from the request header and returns it if exists. Returns Session ID and true
+// if the cookie has been received; writes 401 Unauthorized if SID has not been extracted.
+func RequireSID(res http.ResponseWriter, req *http.Request) (string, bool) {
+	SID, ok := ExtractSID(req)
+	if !ok {
 		Unauthorized(res)
 		return "", false
 	}
+	return SID, true
 }
 
 // Read tries to read data from a req body and then parse it from JSON to the structure provided as 'v' argument. If it
