@@ -15,7 +15,7 @@ func SetUp(r *web2.Router) Service {
 	handler := Handler{service}
 
 	r.NewRoute(
-		"/servers",
+		"servers",
 		nil,
 		map[string]web2.Handler{
 			http.MethodGet: handler.getAll,

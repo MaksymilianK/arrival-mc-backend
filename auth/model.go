@@ -35,7 +35,7 @@ type rankModification struct {
 	Name        string
 	DisplayName string
 	ChatFormat  string
-	RemPerms    map[int][]string
+	RemPerms    map[int][]string `json:"removedPerms"`
 	AddedPerms  map[int][]string
 }
 

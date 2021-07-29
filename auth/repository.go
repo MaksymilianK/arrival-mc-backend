@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	db "github.com/maksymiliank/arrival-mc-backend/util/db"
 	web "github.com/maksymiliank/arrival-mc-backend/util/web"
+	"strings"
 )
 
 type Repo interface {
@@ -26,9 +28,9 @@ func NewRepo() Repo {
 	return repoS{}
 }
 
-type perm struct {
-	Server int
-	Perm string
+type permission struct {
+	server int
+	perm string
 }
 
 func (repoS) getAllWebRanks() ([]rankWithPerms, error) {
@@ -70,11 +72,25 @@ func (repoS) getAllPerms(rank int) (map[int][]string, error) {
 	return perms, nil
 }
 
+func pfs(permsMap map[int][]string) string {
+	var perms strings.Builder
+	perms.WriteString("ARRAY[")
+	for _, p := range permsMapToSlice(permsMap) {
+		perms.WriteString(fmt.Sprintf("(%d,'%s'),", p.server, p.perm))
+	}
+	p := perms.String()
+	if p[len(p) - 1] != '[' {
+		p = p[:len(p) - 1]
+	}
+	p += "]::permission[]"
+	return p
+}
+
 func (repoS) createRank(rank rankCreation) (int, error) {
 	row := db.Conn().QueryRow(
-		context.Background(),
-		"SELECT * FROM create_rank($1, $2, $3, $4, $5)",
-		rank.Level, rank.Name, rank.DisplayName, rank.ChatFormat, permsMapToSlice(rank.Perms),
+		context.Background(),fmt.Sprintf(
+		"SELECT * FROM create_rank($1, $2, $3, $4, %s)", pfs(rank.Perms)),
+		rank.Level, rank.Name, rank.DisplayName, rank.ChatFormat,
 	)
 
 	var ID int
@@ -117,9 +133,9 @@ func (repoS) modifyRank(ID int, rank rankModification) error {
 	}
 
 	_, err := db.Conn().Exec(
-		context.Background(),
-		"SELECT * FROM modify_rank($1, $2, $3, $4, $5, $6, $7)",
-		ID, level, name, displayName, chatFormat, permsMapToSlice(rank.RemPerms), permsMapToSlice(rank.AddedPerms),
+		context.Background(), fmt.Sprintf(
+		"SELECT * FROM modify_rank($1, $2, $3, $4, $5, %s, %s)", pfs(rank.RemPerms), pfs(rank.AddedPerms)),
+		ID, level, name, displayName, chatFormat,
 	)
 	return err
 }
@@ -138,32 +154,32 @@ func (repoS) getPlayerCredentials(nick string) (playerCredentials, error) {
 	return data, nil
 }
 
-func (p *perm) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+func (p *permission) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	if src == nil {
 		return errors.New("NULL values can't be decoded")
 	}
 
-	if err := (pgtype.CompositeFields{&p.Server, &p.Perm}).DecodeBinary(ci, src); err != nil {
+	if err := (pgtype.CompositeFields{&p.server, &p.perm}).DecodeBinary(ci, src); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p perm) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
-	server := pgtype.Int2{int16(p.Server), pgtype.Present}
-	perm := pgtype.Text{p.Perm, pgtype.Present}
+func (p permission) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
+	server := pgtype.Int2{int16(p.server), pgtype.Present}
+	perm := pgtype.Varchar{p.perm, pgtype.Present}
 	return (pgtype.CompositeFields{&server, &perm}).EncodeBinary(ci, buf)
 }
 
-func permsMapToSlice(permsMap map[int][]string) []perm {
-	perms := make([]perm, 0)
+func permsMapToSlice(permsMap map[int][]string) []permission {
+	perms := make([]permission, 0)
 	if permsMap == nil {
 		return perms
 	}
 
 	for s, sp := range permsMap {
 		for _, p := range sp {
-			perms = append(perms, perm{s, p})
+			perms = append(perms, permission{s, p})
 		}
 	}
 	return perms

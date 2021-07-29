@@ -48,5 +48,5 @@ func main() {
 	ban.SetUp(r, serverService, authService)
 
 	log.Print("The application is running!")
-	log.Fatal(http.ListenAndServe(":80", Handler{r, authService}))
+	log.Fatal(http.ListenAndServe(":8080", Handler{r, authService}))
 }

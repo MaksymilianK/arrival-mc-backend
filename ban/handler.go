@@ -19,7 +19,7 @@ func SetUp(r *web.Router, serverServer server.Service, authService auth.Service)
 	handler := Handler{service, authService}
 
 	r.NewRoute(
-		"/bans",
+		"bans",
 		nil,
 		map[string]web.Handler{
 			http.MethodGet: handler.getAll,
@@ -27,7 +27,7 @@ func SetUp(r *web.Router, serverServer server.Service, authService auth.Service)
 		},
 	)
 	r.NewRoute(
-		"/bans/:id",
+		"bans/:id",
 		[]web.Extractor{web.IntExtr},
 		map[string]web.Handler{
 			http.MethodPut: handler.modifyOne,

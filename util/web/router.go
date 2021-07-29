@@ -99,7 +99,8 @@ func (r *Router) NewRoute(path string, extrs []Extractor, handlers map[string]Ha
 // router, but it does not have any handler defined for the request method, it writes 405 Method Not Allowed. If the
 // method was Options, it writes 204 No Content with Allow header instead.
 func (r *Router) Match(res http.ResponseWriter, req *http.Request) {
-	segments := strings.Split(req.URL.Path, "/")
+	segments := strings.Split(req.URL.Path, "/")[2:]
+
 	for _, route := range r.routes {
 		if matched, params := matchRoute(segments, route); matched {
 			if req.Method == http.MethodOptions {
@@ -145,7 +146,7 @@ func matchRoute(reqSegments []string, route *route) (bool, PathVars) {
 				if params == nil {
 					params = make(PathVars)
 				}
-				params[s] = val
+				params[s[1:]] = val
 				extrIndex++
 			} else {
 				return false, nil

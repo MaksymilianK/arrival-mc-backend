@@ -84,7 +84,7 @@ func NotFound(res http.ResponseWriter) {
 // InternalServerError writes a response with 500 Internal Server Error status and logs a message. If succeeds, callers
 // should just return, because the response is already written. Otherwise, it logs a message and returns.
 func InternalServerError(res http.ResponseWriter, err error) {
-	log.Println(err.Error())
+	log.Println(err)
 	res.WriteHeader(http.StatusInternalServerError)
 	Write(res, "Cannot process the request: unexpected error occurred")
 }
@@ -144,6 +144,7 @@ func OnError(res http.ResponseWriter, err error) {
 	case ErrPerm:
 		res.WriteHeader(http.StatusForbidden)
 	default:
+		log.Println(err)
 		res.WriteHeader(http.StatusInternalServerError)
 	}
 	Write(res, err.Error())

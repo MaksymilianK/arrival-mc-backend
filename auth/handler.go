@@ -18,7 +18,7 @@ func SetUp(r *web.Router) Service {
 	handler := Handler{service}
 
 	r.NewRoute(
-		"/ranks",
+		"ranks",
 		nil,
 		map[string]web.Handler{
 			http.MethodGet: handler.getAll,
@@ -26,17 +26,17 @@ func SetUp(r *web.Router) Service {
 		},
 	)
 	r.NewRoute(
-		"/ranks/:id",
+		"ranks/:id",
 		[]web.Extractor{web.IntExtr},
 		map[string]web.Handler{
 			http.MethodGet: handler.getOne,
 			http.MethodDelete: handler.removeOne,
-			http.MethodPut: handler.modifyOne,
+			http.MethodPatch: handler.modifyOne,
 		},
 	)
 
 	r.NewRoute(
-		"/auth/current",
+		"auth/current",
 		nil,
 		map[string]web.Handler{
 			http.MethodGet: handler.getCurrent,
@@ -58,7 +58,7 @@ func (h Handler) createOne(res http.ResponseWriter, req *http.Request, _ web.Pat
 		return
 	}
 
-	if _, err := h.service.RequirePerm(SID, ""); err != nil {
+	if _, err := h.service.RequirePerm(SID, "rank.modify"); err != nil {
 		web.OnError(res, err)
 		return
 	}

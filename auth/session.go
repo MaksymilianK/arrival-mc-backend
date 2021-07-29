@@ -60,9 +60,10 @@ func (s *sessionManagerS) new(p *Player) (string, error) {
 	session := &session{SID, p, expiration}
 
 	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	s.bySID[SID] = session
 	s.byExpiration.Put(session, struct{}{})
-	s.lock.Unlock()
 
 	return SID, nil
 }
@@ -96,14 +97,7 @@ func (s *sessionManagerS) remove(SID string) bool {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	session, ok := s.bySID[SID]
-	if ok {
-		delete(s.bySID, SID)
-		s.byExpiration.Remove(session)
-		return true
-	} else {
-		return false
-	}
+	return s.doRemove(SID)
 }
 
 func (s *sessionManagerS) walkAndRemove(n *rbt.Node, time time.Time) {
@@ -118,7 +112,7 @@ func (s *sessionManagerS) walkAndRemove(n *rbt.Node, time time.Time) {
 	} else {
 		s.walkAndRemove(n.Left, time)
 		s.walkAndRemove(n.Right, time)
-		s.remove(session.SID)
+		s.doRemove(session.SID)
 	}
 }
 
@@ -128,6 +122,17 @@ func (s *sessionManagerS) generateSID() (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(SID), nil
+}
+
+func (s *sessionManagerS) doRemove(SID string) bool {
+	session, ok := s.bySID[SID]
+	if ok {
+		delete(s.bySID, SID)
+		s.byExpiration.Remove(session)
+		return true
+	} else {
+		return false
+	}
 }
 
 func compareSessions(a interface{}, b interface{}) int {

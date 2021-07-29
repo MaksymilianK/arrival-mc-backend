@@ -5,7 +5,6 @@ import (
 	"github.com/maksymiliank/arrival-mc-backend/util/db"
 	"github.com/maksymiliank/arrival-mc-backend/util/validator"
 	"github.com/maksymiliank/arrival-mc-backend/util/web"
-	"log"
 	"regexp"
 	"sort"
 	"sync"
@@ -43,7 +42,7 @@ type serviceS struct{
 	lock sync.RWMutex
 }
 
-var permRegex = regexp.MustCompile(`^!?[A-Za-z0-9]+(.[A-Za-z0-9]+)*$`)
+var permRegex = regexp.MustCompile(`^!?[A-Za-z0-9]+(\.[A-Za-z0-9]+)*$`)
 var nickRegex = regexp.MustCompile(`^\w{3,16}$`)
 
 func NewService(repo Repo, sessions SessionManager, crypto Crypto) Service {
@@ -62,6 +61,7 @@ func NewService(repo Repo, sessions SessionManager, crypto Crypto) Service {
 	}
 
 	service.setRanks(ranks)
+
 	return service
 }
 
@@ -136,7 +136,6 @@ func (s *serviceS) oneRank(ID int) (rankFull, error) {
 
 	perms, err := s.repo.getAllPerms(ID)
 	if err != nil {
-		log.Println(err)
 		return rankFull{}, db.ErrPersistence
 	}
 
@@ -196,7 +195,7 @@ func (s *serviceS) removeRank(ID int) error {
 	delete(s.ranksWithWebPerms, ID)
 
 	minRanks := s.minRanks.Ranks
-	s.minRanks.Ranks = make([]*rankMin, len(minRanks) - 1)
+	s.minRanks.Ranks = make([]*rankMin, 0, len(minRanks) - 1)
 	for _, r := range minRanks {
 		if r.ID != ID {
 			s.minRanks.Ranks = append(s.minRanks.Ranks, r)
@@ -206,7 +205,7 @@ func (s *serviceS) removeRank(ID int) error {
 	delete(s.byID, ID)
 
 	byLevel := s.byLevel
-	s.byLevel = make([]*Rank, len(byLevel) - 1)
+	s.byLevel = make([]*Rank, 0, len(byLevel) - 1)
 	for _, r := range byLevel {
 		if r.id != ID {
 			s.byLevel = append(s.byLevel, r)
@@ -297,8 +296,8 @@ func (s *serviceS) signOut(SID string) bool {
 
 func (s *serviceS) setRanks(ranksWeb []rankWithPerms) {
 	ranks := make([]*rankMin, 0)
-	for _, r := range ranksWeb {
-		s.ranksWithWebPerms[r.ID] = &r
+	for i, r := range ranksWeb {
+		s.ranksWithWebPerms[r.ID] = &ranksWeb[i]
 
 		ranks = append(ranks, &rankMin{
 			r.ID,

@@ -16,14 +16,14 @@ func SetUp(r *web.Router, authService auth.Service) Service {
 	handler := Handler{service}
 
 	r.NewRoute(
-		"/players",
+		"players",
 		nil,
 		map[string]web.Handler{
 			http.MethodGet: handler.getAll,
 		},
 	)
 	r.NewRoute(
-		"/players/:nick",
+		"players/:nick",
 		[]web.Extractor{web.StringExtr},
 		map[string]web.Handler{
 			http.MethodGet: handler.getOne,
