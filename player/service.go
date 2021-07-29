@@ -32,7 +32,7 @@ func (s serviceS) one(SID string, nick string) (Res, error) {
 		return Res{}, web.ErrAuth
 	}
 
-	if !s.authService.HasPerm(p, "players.view") && p.Nick() != nick {
+	if !s.authService.HasPerm(p, "player.view") && p.Nick() != nick {
 		return Res{}, web.ErrPerm
 	}
 

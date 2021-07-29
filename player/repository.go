@@ -36,18 +36,14 @@ func (repoS) getAll(page web.PageReq, nick string) (web.PageRes, error) {
 	var total int
 	players := make([]Res, 0)
 
-	var totalTrash int
-	var nickTrash string
-	var rankTrash string
-
 	rows.Next()
-	if err := rows.Scan(&total, &nickTrash, &rankTrash); err != nil {
+	if err := rows.Scan(&total, nil, nil); err != nil {
 		return web.PageRes{}, err
 	}
 
 	for rows.Next() {
 		var p Res
-		if err := rows.Scan(&totalTrash, &p.Nick, &p.Rank); err != nil {
+		if err := rows.Scan(nil, &p.Nick, &p.Rank); err != nil {
 			return web.PageRes{}, err
 		}
 		players = append(players, p)

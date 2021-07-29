@@ -246,6 +246,14 @@ func (s *serviceS) modifyRank(ID int, rank rankModification) error {
 		s.ranksWithWebPerms[ID].ChatFormat = rank.ChatFormat
 	}
 
+	for _, rp := range rank.RemPerms[server.WebsiteID] {
+		delete(s.byID[ID].allPerms, rp)
+	}
+
+	for _, ap := range rank.AddedPerms[server.WebsiteID] {
+		s.byID[ID].allPerms[ap] = struct{}{}
+	}
+
 	s.orderPerms(0)
 	return nil
 }
