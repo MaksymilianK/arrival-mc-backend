@@ -6,18 +6,37 @@ import (
 	"time"
 )
 
-type banMin struct {
-	ID         int        `json:"id"`
-	Server     string     `json:"server"`
-	Recipient  player.Res `json:"recipient"`
-	Start      time.Time  `json:"start"`
-	Expiration time.Time  `json:"expiration"`
-	OldType    int        `json:"oldType;omitempty"`
+type banMinModel struct {
+	id         int
+	server     int
+	recipient  player.Res
+	start      time.Time
+	expiration time.Time
+	oldType    rune
 }
 
-type banFull struct {
-	banMin
-	ActualExpiration   time.Time  `json:"actualExpiration;omitempty"`
+type banMinRes struct {
+	ID         int        `json:"id"`
+	Server     int        `json:"server"`
+	Recipient  player.Res `json:"recipient"`
+	Start      int64      `json:"start"`
+	Expiration int64      `json:"expiration"`
+	OldType    rune       `json:"oldType;omitempty"`
+}
+
+type banFullModel struct {
+	banMinModel
+	actualExpiration   time.Time
+	giver              player.Res
+	reason             string
+	newBan             int
+	modder             player.Res
+	modificationReason string
+}
+
+type banFullRes struct {
+	banMinRes
+	ActualExpiration   int64      `json:"actualExpiration;omitempty"`
 	Giver              player.Res `json:"giver"`
 	Reason             string     `json:"reason"`
 	NewBan             int        `json:"newBan;omitempty"`

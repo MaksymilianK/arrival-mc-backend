@@ -4,12 +4,14 @@ import (
 	"github.com/maksymiliank/arrival-mc-backend/auth"
 	"github.com/maksymiliank/arrival-mc-backend/server"
 	v "github.com/maksymiliank/arrival-mc-backend/util/validator"
+	"github.com/maksymiliank/arrival-mc-backend/util/web"
 	"time"
 )
 
 type Service interface {
-	all(SID string, req banReq) ([]*banMin, error)
+	all(SID string, req banReq) (web.PageRes, error)
 	createOne(SID string, ban banCreationReq) (int, error)
+	one(SID string, ID int) (*banFullModel, error)
 	modifyOne(SID string, ID int, ban banModificationReq) (int, error)
 	deleteOne(SID string, ID int, removalReason string) error
 }
@@ -24,9 +26,9 @@ func NewService(repo Repo, serverService server.Service, authService auth.Servic
 	return serviceS{repo, serverService, authService}
 }
 
-func (s serviceS) all(SID string, req banReq) ([]*banMin, error) {
+func (s serviceS) all(SID string, req banReq) (web.PageRes, error) {
 	if _, err := s.authService.RequirePerm(SID, "ban.view"); err != nil {
-		return nil, err
+		return web.PageRes{}, err
 	}
 
 	if err := v.Validate(
@@ -37,7 +39,7 @@ func (s serviceS) all(SID string, req banReq) ([]*banMin, error) {
 		req.startFrom.IsZero() || req.expirationFrom.IsZero() || !req.startFrom.After(req.expirationFrom),
 		req.startTo.IsZero() || req.expirationTo.IsZero() || !req.startTo.After(req.expirationTo),
 	); err != nil {
-		return nil, err
+		return web.PageRes{}, err
 	}
 
 	return s.repo.getAll(req)
@@ -65,6 +67,14 @@ func (s serviceS) createOne(SID string, ban banCreationReq) (int, error) {
 		ban.Duration,
 		ban.Reason,
 	})
+}
+
+func (s serviceS) one(SID string, ID int) (*banFullModel, error) {
+	if _, err := s.authService.RequirePerm(SID, "ban.view"); err != nil {
+		return nil, err
+	}
+
+	return s.repo.getOne(ID)
 }
 
 func (s serviceS) modifyOne(SID string, ID int, ban banModificationReq) (int, error) {

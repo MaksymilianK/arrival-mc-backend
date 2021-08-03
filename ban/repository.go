@@ -4,11 +4,14 @@ import (
 	"context"
 	"github.com/jackc/pgtype"
 	"github.com/maksymiliank/arrival-mc-backend/util/db"
+	"github.com/maksymiliank/arrival-mc-backend/util/web"
+	"time"
 )
 
 type Repo interface {
-	getAll(req banReq) ([]*banMin, error)
+	getAll(req banReq) (web.PageRes, error)
 	createOne(ban banCreation) (int, error)
+	getOne(ID int) (*banFullModel, error)
 	modifyOne(ID int, modder int, ban banModificationReq) (int, error)
 	deleteOne(ID int, modder int, removalReason string) error
 }
@@ -19,7 +22,7 @@ func NewRepo() Repo {
 	return repoS{}
 }
 
-func (repoS) getAll(req banReq) ([]*banMin, error) {
+func (repoS) getAll(req banReq) (web.PageRes, error) {
 	server := pgtype.Int2{int16(req.server), pgtype.Present}
 	if req.server == 0 {
 		server.Status = pgtype.Null
@@ -52,23 +55,36 @@ func (repoS) getAll(req banReq) ([]*banMin, error) {
 
 	rows, err := db.Conn().Query(
 		context.Background(),
-		"SELECT * FROM get_bans($1, $2, $3, $4, $5, $6)",
-		server, recipient, startFrom, startTo, expirationFrom, expirationTo,
+		"SELECT * FROM get_bans($1, $2, $3, $4, $5, $6, $7, $8)",
+		req.page.Page, req.page.Size, server, recipient, startFrom, startTo, expirationFrom, expirationTo,
 	)
 	if err != nil {
-		return nil, err
+		return web.PageRes{}, err
 	}
 
-	bans := make([]*banMin, 0)
+	var page web.PageRes
+	rows.Next()
+	if err := rows.Scan(&page.Total, nil, nil, nil, nil, nil, nil); err != nil {
+		return web.PageRes{}, err
+	}
+
+	bans := make([]*banMinModel, 0)
 	for rows.Next() {
-		var b banMin
-		if err := rows.Scan(&b.ID, &b.Server, &b.Recipient.Nick, &b.Recipient.Rank, &b.Start, &b.Expiration, &b.OldType);
+		var oldType *rune
+		var b banMinModel
+		if err := rows.Scan(&b.id, &b.server, &b.recipient.Nick, &b.recipient.Rank, &b.start, &b.expiration, &oldType);
 			err != nil {
-			return nil, err
+			return web.PageRes{}, err
+		}
+
+		if oldType != nil {
+			b.oldType = *oldType
 		}
 		bans = append(bans, &b)
 	}
-	return bans, nil
+	page.Data = bans
+
+	return page, nil
 }
 
 func (repoS) createOne(ban banCreation) (int, error) {
@@ -83,6 +99,39 @@ func (repoS) createOne(ban banCreation) (int, error) {
 		return 0, err
 	}
 	return ID, nil
+}
+
+func (repoS) getOne(ID int) (*banFullModel, error) {
+	row := db.Conn().QueryRow(context.Background(), "SELECT * FROM get_ban($1)", ID)
+
+	var oldType *rune
+	var actualExpiration *time.Time
+	var newBan *int
+	var modderNick *string
+	var modderRank *int
+	var modificationReason *string
+	var b banFullModel
+
+	if err := row.Scan(&b.id, &b.server, &b.recipient.Nick, &b.recipient.Rank, &b.start, &b.expiration, &oldType,
+		&actualExpiration, &b.giver.Nick, &b.giver.Rank, &b.reason, &newBan, &modderNick, &modderRank,
+		&modificationReason,
+	); err != nil {
+		return nil, err
+	}
+
+	if oldType != nil {
+		b.oldType = *oldType
+		b.actualExpiration = *actualExpiration
+	}
+
+	if newBan != nil {
+		b.newBan = *newBan
+		b.modder.Nick = *modderNick
+		b.modder.Rank = *modderRank
+		b.modificationReason = *modificationReason
+	}
+
+	return &b, nil
 }
 
 func (repoS) modifyOne(ID int, modder int, ban banModificationReq) (int, error) {

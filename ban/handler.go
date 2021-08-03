@@ -30,6 +30,7 @@ func SetUp(r *web.Router, serverServer server.Service, authService auth.Service)
 		"bans/:id",
 		[]web.Extractor{web.IntExtr},
 		map[string]web.Handler{
+			http.MethodGet: handler.getOne,
 			http.MethodPut: handler.modifyOne,
 			http.MethodDelete: handler.deleteOne,
 		},
@@ -69,12 +70,27 @@ func (h Handler) getAll(res http.ResponseWriter, req *http.Request, _ web.PathVa
 		return
 	}
 
-	bans, err := h.service.all(SID, banReq)
+	page, err := h.service.all(SID, banReq)
 	if err != nil {
 		web.OnError(res, err)
 		return
 	}
-	web.Write(res, bans)
+
+	banModels := page.Data.([]*banMinModel)
+	banRes := make([]banMinRes, 0)
+	for _, b := range banModels {
+		banRes = append(banRes, banMinRes{
+			b.id,
+			b.server,
+			b.recipient,
+			b.start.Unix(),
+			b.expiration.Unix(),
+			b.oldType,
+		})
+	}
+	page.Data = banRes
+
+	web.Write(res, page)
 }
 
 func (h Handler) createOne(res http.ResponseWriter, req *http.Request, _ web.PathVars) {
@@ -94,6 +110,31 @@ func (h Handler) createOne(res http.ResponseWriter, req *http.Request, _ web.Pat
 		return
 	}
 	web.Created(res, strconv.Itoa(ID))
+}
+
+func (h Handler) getOne(res http.ResponseWriter, req *http.Request, vars web.PathVars) {
+	SID, ok := web.RequireSID(res, req)
+	if !ok {
+		return
+	}
+
+	ID := vars["id"].(int)
+
+	b, err := h.service.one(SID, ID)
+	if err != nil {
+		web.OnError(res, err)
+		return
+	}
+
+	web.Write(res, banFullRes{
+		banMinRes{b.id, b.server, b.recipient, b.start.Unix(), b.expiration.Unix(), b.oldType},
+		b.actualExpiration.Unix(),
+		b.giver,
+		b.reason,
+		b.newBan,
+		b.modder,
+		b.modificationReason,
+	})
 }
 
 func (h Handler) modifyOne(res http.ResponseWriter, req *http.Request, vars web.PathVars) {

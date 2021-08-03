@@ -60,12 +60,12 @@ func (p Params) Time(res http.ResponseWriter, name string) (time.Time, error) {
 		return time.Time{}, ErrNotFound
 	}
 
-	timeParam, err := time.Parse(time.RFC822, param)
+	t, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
 		BadRequest(res)
 		return time.Time{}, ErrBadData
 	}
-	return timeParam, nil
+	return time.Unix(t, 0), nil
 }
 
 // Page tries to extract pagination data from a request. If pagination is invalid, e.g. on or more of parameters
