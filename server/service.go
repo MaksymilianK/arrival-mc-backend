@@ -8,9 +8,9 @@ type Service interface {
 }
 
 type serviceS struct {
-	repo Repo
+	repo    Repo
 	servers serversRes
-	byID map[int]server
+	byID    map[int]server
 }
 
 func NewService(repo Repo) Service {

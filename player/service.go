@@ -11,7 +11,7 @@ type Service interface {
 }
 
 type serviceS struct {
-	repo Repo
+	repo        Repo
 	authService auth.Service
 }
 

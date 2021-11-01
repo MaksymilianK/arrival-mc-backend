@@ -13,6 +13,7 @@ import (
 type Service interface {
 	// RankExists checks if a rank with the given ID exists.
 	RankExists(ID int) bool
+	GetRanks() ([]*rankFull, error)
 	RequireAuth(SID string) (*Player, bool)
 	RequirePerm(SID string, perm string) (*Player, error)
 	HasPerm(p *Player, perm string) bool
@@ -31,28 +32,28 @@ type Service interface {
 	signOut(SID string) bool
 }
 
-type serviceS struct{
-	repo Repo
-	sessions SessionManager
-	crypto Crypto
+type serviceS struct {
+	repo              Repo
+	sessions          SessionManager
+	crypto            Crypto
 	ranksWithWebPerms map[int]*rankWithPerms
-	minRanks minRanks
-	byLevel []*Rank
-	byID map[int]*Rank
-	lock sync.RWMutex
+	minRanks          minRanks
+	byLevel           []*Rank
+	byID              map[int]*Rank
+	lock              sync.RWMutex
 }
 
-var permRegex = regexp.MustCompile(`^!?[A-Za-z0-9]+(\.[A-Za-z0-9]+)*$`)
+var permRegex = regexp.MustCompile(`^[A-Za-z0-9*]+(\.[A-Za-z0-9*]+)*$`)
 var nickRegex = regexp.MustCompile(`^\w{3,16}$`)
 
 func NewService(repo Repo, sessions SessionManager, crypto Crypto) Service {
 	service := &serviceS{
-		repo: repo,
-		sessions: sessions,
-		crypto: crypto,
+		repo:              repo,
+		sessions:          sessions,
+		crypto:            crypto,
 		ranksWithWebPerms: make(map[int]*rankWithPerms),
-		byLevel: make([]*Rank, 0),
-		byID: make(map[int]*Rank),
+		byLevel:           make([]*Rank, 0),
+		byID:              make(map[int]*Rank),
 	}
 
 	ranks, err := repo.getAllWebRanks()
@@ -134,7 +135,7 @@ func (s *serviceS) oneRank(ID int) (rankFull, error) {
 		return rankFull{}, validator.ErrNotFound
 	}
 
-	perms, err := s.repo.getAllPerms(ID)
+	perms, negatedPerms, err := s.repo.getAllPerms(ID)
 	if err != nil {
 		return rankFull{}, db.ErrPersistence
 	}
@@ -142,7 +143,7 @@ func (s *serviceS) oneRank(ID int) (rankFull, error) {
 	r := s.ranksWithWebPerms[ID]
 	return rankFull{
 		rankMin{r.ID, r.Level, r.Name, r.DisplayName, r.ChatFormat},
-		perms,
+		perms, negatedPerms,
 	}, nil
 }
 
@@ -166,7 +167,7 @@ func (s *serviceS) createRank(rank rankCreation) (int, error) {
 
 	s.ranksWithWebPerms[ID] = &rankWithPerms{
 		rankMin{ID, rank.Level, rank.Name, rank.DisplayName, rank.ChatFormat},
-		nil,
+		nil, nil,
 	}
 	s.minRanks.Ranks = append(s.minRanks.Ranks, &rankMin{
 		ID,
@@ -176,7 +177,7 @@ func (s *serviceS) createRank(rank rankCreation) (int, error) {
 		rank.ChatFormat,
 	})
 
-	r := &Rank{id: ID, level: rank.Level, allPerms: make(map[string]struct{})}
+	r := &Rank{id: ID, level: rank.Level, allPerms: make(map[string]struct{}, 0)}
 	s.byLevel = append(s.byLevel, r)
 	s.byID[ID] = r
 	s.orderRanks()
@@ -195,7 +196,7 @@ func (s *serviceS) removeRank(ID int) error {
 	delete(s.ranksWithWebPerms, ID)
 
 	minRanks := s.minRanks.Ranks
-	s.minRanks.Ranks = make([]*rankMin, 0, len(minRanks) - 1)
+	s.minRanks.Ranks = make([]*rankMin, 0, len(minRanks)-1)
 	for _, r := range minRanks {
 		if r.ID != ID {
 			s.minRanks.Ranks = append(s.minRanks.Ranks, r)
@@ -205,7 +206,7 @@ func (s *serviceS) removeRank(ID int) error {
 	delete(s.byID, ID)
 
 	byLevel := s.byLevel
-	s.byLevel = make([]*Rank, 0, len(byLevel) - 1)
+	s.byLevel = make([]*Rank, 0, len(byLevel)-1)
 	for _, r := range byLevel {
 		if r.id != ID {
 			s.byLevel = append(s.byLevel, r)
@@ -214,6 +215,10 @@ func (s *serviceS) removeRank(ID int) error {
 
 	s.orderRanks()
 	return nil
+}
+
+func (s *serviceS) GetRanks() ([]*rankFull, error) {
+	return s.repo.getRanks()
 }
 
 func (s *serviceS) modifyRank(ID int, rank rankModification) error {
@@ -246,7 +251,7 @@ func (s *serviceS) modifyRank(ID int, rank rankModification) error {
 		s.ranksWithWebPerms[ID].ChatFormat = rank.ChatFormat
 	}
 
-	for _, rp := range rank.RemPerms[server.WebsiteID] {
+	for _, rp := range rank.RemovedPerms[server.WebsiteID] {
 		delete(s.byID[ID].allPerms, rp)
 	}
 
@@ -359,8 +364,8 @@ func (s *serviceS) orderPerms(startIndex int) {
 
 func validateCreation(rank rankCreation) error {
 	if err := validator.Validate(
-		rank.Level > 0 && rank.Level < RankLvlOwner,
-		!validator.InSlice(rank.Level, RankLvlDef, RankLvlOwner),
+		rank.Level > 0 && rank.Level < rankLvlOwner,
+		!validator.InSlice(rank.Level, rankLvlDef, rankLvlOwner),
 		len(rank.Name) > 0 && len(rank.Name) <= 30,
 		len(rank.DisplayName) > 0 && len(rank.DisplayName) <= 75,
 		len(rank.ChatFormat) > 0 && len(rank.ChatFormat) <= 200,
@@ -373,22 +378,24 @@ func validateCreation(rank rankCreation) error {
 
 func validateModification(ID int, rank rankModification) error {
 	if err := validator.Validate(
-		(ID > 0 && ID < 32768) || validator.InSlice(ID, RankIDDef, RankIDOwner),
-		rank.Level >= 0 && rank.Level < RankLvlOwner,
-		rank.Level == 0 || !validator.InSlice(ID, RankIDDef, RankIDOwner),
-		!validator.InSlice(rank.Level, RankLvlDef, RankLvlOwner),
+		(ID > 0 && ID < 32768) || validator.InSlice(ID, rankIDDef, rankIDOwner),
+		rank.Level >= 0 && rank.Level < rankLvlOwner,
+		rank.Level == 0 || !validator.InSlice(ID, rankIDDef, rankIDOwner),
+		!validator.InSlice(rank.Level, rankLvlDef, rankLvlOwner),
 		len(rank.Name) >= 0 && len(rank.Name) <= 30,
 		len(rank.DisplayName) >= 0 && len(rank.DisplayName) <= 75,
 		len(rank.ChatFormat) >= 0 && len(rank.ChatFormat) <= 200,
 		rank.AddedPerms == nil || permsValid(rank.AddedPerms),
-		rank.AddedPerms == nil || permsValid(rank.RemPerms),
+		rank.AddedNegatedPerms == nil || permsValid(rank.AddedNegatedPerms),
+		rank.RemovedPerms == nil || permsValid(rank.RemovedPerms),
+		rank.RemovedNegatedPerms == nil || permsValid(rank.RemovedNegatedPerms),
 	); err != nil {
 		return err
 	}
 
-	if rank.RemPerms != nil && rank.RemPerms[server.WebsiteID] != nil {
-		for _, p := range rank.RemPerms[server.WebsiteID] {
-			if validator.InSlice(p, PermRankView, PermRankModify) {
+	if rank.RemovedPerms != nil && rank.RemovedPerms[server.WebsiteID] != nil {
+		for _, p := range rank.RemovedPerms[server.WebsiteID] {
+			if validator.InSlice(p, permRankView, permRankModify) {
 				return validator.ErrValidation
 			}
 		}

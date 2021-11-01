@@ -9,8 +9,8 @@ import (
 )
 
 type session struct {
-	SID string
-	player *Player
+	SID        string
+	player     *Player
 	expiration time.Time
 }
 
@@ -22,11 +22,11 @@ type SessionManager interface {
 	remove(SID string) bool
 }
 
-type sessionManagerS struct{
-	crypto Crypto
-	bySID map[string]*session
+type sessionManagerS struct {
+	crypto       Crypto
+	bySID        map[string]*session
 	byExpiration *rbt.Tree
-	lock sync.RWMutex
+	lock         sync.RWMutex
 }
 
 const SessionLifetime = 15 * time.Minute
@@ -34,8 +34,8 @@ const monitorDuration = 30 * time.Second
 
 func NewSessionManager(crypto Crypto) SessionManager {
 	return &sessionManagerS{
-		crypto: crypto,
-		bySID: make(map[string]*session),
+		crypto:       crypto,
+		bySID:        make(map[string]*session),
 		byExpiration: rbt.NewWith(compareSessions),
 	}
 }

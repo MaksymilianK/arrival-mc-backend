@@ -14,10 +14,10 @@ func fakeHandler(body string) Handler {
 
 func TestRouter(t *testing.T) {
 	type TestCase struct {
-		path string
+		path   string
 		method string
 		status int
-		body string
+		body   string
 	}
 
 	tests := []TestCase{

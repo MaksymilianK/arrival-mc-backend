@@ -55,7 +55,6 @@ func Write(res http.ResponseWriter, data interface{}) {
 	tryWrite(res, bytes)
 }
 
-
 // Created writes a response with the Created status. It writes location header with a location of the created resource.
 // If succeeds, callers should just return, because the response is already written. Otherwise, it logs a message
 // and returns.

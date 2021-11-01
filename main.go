@@ -8,12 +8,13 @@ import (
 	"github.com/maksymiliank/arrival-mc-backend/util"
 	"github.com/maksymiliank/arrival-mc-backend/util/db"
 	"github.com/maksymiliank/arrival-mc-backend/util/web"
+	"github.com/maksymiliank/arrival-mc-backend/ws"
 	"log"
 	"net/http"
 )
 
-type Handler struct{
-	router *web.Router
+type Handler struct {
+	router      *web.Router
 	authService auth.Service
 }
 
@@ -41,7 +42,9 @@ func main() {
 
 	serverService := server.SetUp(r)
 
-	authService := auth.SetUp(r)
+	w := ws.SetUp(r, cfg.WS)
+
+	authService := auth.SetUp(r, w)
 
 	player.SetUp(r, authService)
 

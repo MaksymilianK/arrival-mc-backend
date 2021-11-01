@@ -1,7 +1,7 @@
 package server
 
 type server struct {
-	ID int `json:"id"`
+	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 

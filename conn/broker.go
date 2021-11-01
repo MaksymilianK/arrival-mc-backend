@@ -12,7 +12,7 @@ type Broker interface {
 	Transfer(msg []byte)
 }
 
-type BrokerS struct{
+type BrokerS struct {
 	handlers map[int][]handler
 }
 
@@ -39,7 +39,7 @@ func (b *BrokerS) Transfer(msg []byte) {
 		log.Println("Message does not contain code")
 		return
 	}
-	code, ok := c.(int);
+	code, ok := c.(int)
 	if !ok {
 		log.Println("Message code is not an integer")
 		return

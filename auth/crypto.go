@@ -12,16 +12,16 @@ import (
 )
 
 var (
-	ErrWrongPass = errors.New("wrong password")
+	ErrWrongPass   = errors.New("wrong password")
 	ErrInvalidHash = errors.New("hash is invalid")
 )
 
 const (
 	argonParallelism = uint8(1)
-	argonMemory = uint32(64 * 1024)
-	argonIterations = uint32(1)
-	argonHashLength = uint32(16)
-	argonSaltLength = 16
+	argonMemory      = uint32(64 * 1024)
+	argonIterations  = uint32(1)
+	argonHashLength  = uint32(16)
+	argonSaltLength  = 16
 )
 
 type Crypto interface {

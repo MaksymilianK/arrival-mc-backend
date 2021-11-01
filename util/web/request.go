@@ -20,8 +20,8 @@ type Sort struct {
 
 // PageReq represents pagination data.
 type PageReq struct {
-	Page int   // Current page. Starts from 0.
-	Size int   // Number of elements that are to be returned in a response.
+	Page int // Current page. Starts from 0.
+	Size int // Number of elements that are to be returned in a response.
 }
 
 // Sorting orders.

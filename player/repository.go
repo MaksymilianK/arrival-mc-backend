@@ -12,7 +12,7 @@ type Repo interface {
 	getOne(nick string) (Res, error)
 }
 
-type repoS struct {}
+type repoS struct{}
 
 func NewRepo() Repo {
 	return repoS{}

@@ -14,7 +14,7 @@ import (
 
 type GameServerConn struct {
 	conn net.Conn
-	out chan []byte
+	out  chan []byte
 	lock sync.Mutex
 }
 
@@ -25,11 +25,11 @@ type Pool interface {
 
 type PoolS struct {
 	gameAllowedAddr string
-	game *GameServerConn
-	broker Broker
+	game            *GameServerConn
+	broker          Broker
 }
 
-func SetUp(r *web.Router, cfg util.GameConnConfig) Pool {
+func SetUp(r *web.Router, cfg util.WSConfig) Pool {
 	broker := NewBroker()
 	gameAllowedAddr := cfg.IP + ":" + strconv.Itoa(cfg.Port)
 	pool := &PoolS{

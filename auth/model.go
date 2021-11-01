@@ -14,12 +14,14 @@ type minRanks struct {
 
 type rankWithPerms struct {
 	rankMin
-	Perms []string `json:"perms"`
+	Perms []string `json:"permissions"`
+	NegatedPerms []string `json:"negatedPermissions"`
 }
 
 type rankFull struct {
 	rankMin
-	Perms map[int][]string `json:"perms"`
+	Perms map[int][]string `json:"permissions"`
+	NegatedPerms map[int][]string `json:"negatedPermissions"`
 }
 
 type rankCreation struct {
@@ -27,7 +29,8 @@ type rankCreation struct {
 	Name        string
 	DisplayName string
 	ChatFormat  string
-	Perms       map[int][]string
+	Perms       map[int][]string `json:"permissions"`
+	NegatedPerms map[int][]string `json:"negatedPermissions"`
 }
 
 type rankModification struct {
@@ -35,14 +38,17 @@ type rankModification struct {
 	Name        string
 	DisplayName string
 	ChatFormat  string
-	RemPerms    map[int][]string `json:"removedPerms"`
+	RemovedPerms    map[int][]string `json:"removedPermissions"`
 	AddedPerms  map[int][]string
+	RemovedNegatedPerms map[int][]string `json:"removedNegatedPermissions"`
+	AddedNegatedPerms map[int][]string `json:"addedNegatedPermissions"`
 }
 
 type Rank struct {
 	id             int
 	level          int
 	allPerms       map[string]struct{}
+	allNegatedPerms map[string]struct{}
 	effectivePerms map[string]struct{}
 }
 
@@ -53,14 +59,14 @@ type Player struct {
 }
 
 type playerMin struct {
-	Nick string `json:"nick"`
+	Nick string         `json:"nick"`
 	Rank *rankWithPerms `json:"rank"`
 }
 
 type playerCredentials struct {
-	id int
+	id       int
 	passHash string
-	rank int
+	rank     int
 }
 
 type loginForm struct {
@@ -68,13 +74,19 @@ type loginForm struct {
 	Password string
 }
 
-const RankLvlDef = 1000
-const RankLvlOwner = 32767
-const RankIDDef = -2
-const RankIDOwner = -1
+type rankList struct {
+	Server int
+}
 
-const PermRankView = "rank.view"
-const PermRankModify = "rank.modifyRank"
+const (
+	rankLvlDef   = 1000
+	rankLvlOwner = 32767
+	rankIDDef   = -2
+	rankIDOwner = -1
+
+	permRankView   = "rank.view"
+	permRankModify = "rank.modifyRank"
+)
 
 func (r *Rank) ID() int {
 	return r.id

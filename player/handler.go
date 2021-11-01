@@ -68,4 +68,3 @@ func (h Handler) getOne(res http.ResponseWriter, req *http.Request, vars web.Pat
 	}
 	web.Write(res, player)
 }
-

@@ -17,9 +17,9 @@ type Service interface {
 }
 
 type serviceS struct {
-	repo Repo
+	repo          Repo
 	serverService server.Service
-	authService auth.Service
+	authService   auth.Service
 }
 
 func NewService(repo Repo, serverService server.Service, authService auth.Service) Service {
@@ -54,7 +54,7 @@ func (s serviceS) createOne(SID string, ban banCreationReq) (int, error) {
 	if err := v.Validate(
 		s.serverService.Exists(ban.Server),
 		s.authService.NickValid(ban.Recipient),
-		ban.Duration >= 24 * time.Hour && ban.Duration <= 365 * 24 * time.Hour,
+		ban.Duration >= 24*time.Hour && ban.Duration <= 365*24*time.Hour,
 		ban.Reason != "" && len(ban.Reason) <= 255,
 	); err != nil {
 		return 0, err
@@ -86,7 +86,7 @@ func (s serviceS) modifyOne(SID string, ID int, ban banModificationReq) (int, er
 	if err := v.Validate(
 		ban.Server == 0 || s.serverService.Exists(ban.Server),
 		ban.Recipient == "" || s.authService.NickValid(ban.Recipient),
-		ban.Duration == 0 || ban.Duration >= 24 * time.Hour && ban.Duration <= 365 * 24 * time.Hour,
+		ban.Duration == 0 || ban.Duration >= 24*time.Hour && ban.Duration <= 365*24*time.Hour,
 		ban.Reason == "" || ban.Reason != "" && len(ban.Reason) <= 255,
 		len(ban.ModificationReason) > 0 && len(ban.ModificationReason) < 256,
 	); err != nil {

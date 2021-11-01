@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/maksymiliank/arrival-mc-backend/util"
+	"log"
 )
 
 type config struct {
-	host string
-	port int
+	host     string
+	port     int
 	database string
-	user string
+	user     string
 	password string
 }
 
@@ -20,6 +21,7 @@ var ErrPersistence = errors.New("error while querying db")
 var conn *pgxpool.Pool
 
 func SetUp(cfg util.DBConfig) {
+	log.Println(fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database))
 	c, err := pgxpool.Connect(
 		context.Background(),
 		fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database),

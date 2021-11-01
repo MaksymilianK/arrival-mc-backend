@@ -5,7 +5,7 @@ import "testing"
 func TestValid(t *testing.T) {
 	type TestCase struct {
 		constraints []bool
-		result error
+		result      error
 	}
 
 	tests := []TestCase{
@@ -23,8 +23,8 @@ func TestValid(t *testing.T) {
 
 func TestInSlice(t *testing.T) {
 	type TestCase struct {
-		val interface{}
-		slice []interface{}
+		val    interface{}
+		slice  []interface{}
 		result bool
 	}
 
@@ -43,8 +43,8 @@ func TestInSlice(t *testing.T) {
 
 func TestInSet(t *testing.T) {
 	type TestCase struct {
-		val interface{}
-		set map[interface{}]struct{}
+		val    interface{}
+		set    map[interface{}]struct{}
 		result bool
 	}
 

@@ -9,7 +9,7 @@ import (
 )
 
 type Handler struct {
-	service Service
+	service     Service
 	authService auth.Service
 }
 
@@ -22,7 +22,7 @@ func SetUp(r *web.Router, serverServer server.Service, authService auth.Service)
 		"bans",
 		nil,
 		map[string]web.Handler{
-			http.MethodGet: handler.getAll,
+			http.MethodGet:  handler.getAll,
 			http.MethodPost: handler.createOne,
 		},
 	)
@@ -30,8 +30,8 @@ func SetUp(r *web.Router, serverServer server.Service, authService auth.Service)
 		"bans/:id",
 		[]web.Extractor{web.IntExtr},
 		map[string]web.Handler{
-			http.MethodGet: handler.getOne,
-			http.MethodPut: handler.modifyOne,
+			http.MethodGet:    handler.getOne,
+			http.MethodPut:    handler.modifyOne,
 			http.MethodDelete: handler.deleteOne,
 		},
 	)
@@ -178,4 +178,3 @@ func (h Handler) deleteOne(res http.ResponseWriter, req *http.Request, vars web.
 	}
 	web.NoContent(res)
 }
-

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"github.com/maksymiliank/arrival-mc-backend/util/web"
+	"github.com/maksymiliank/arrival-mc-backend/ws"
 	"net/http"
 	"strconv"
 )
@@ -10,7 +11,7 @@ type Handler struct {
 	service Service
 }
 
-func SetUp(r *web.Router) Service {
+func SetUp(r *web.Router, w *ws.Server) Service {
 	crypto := NewCrypto()
 	sessions := NewSessionManager(crypto)
 	go sessions.monitor()
@@ -21,7 +22,7 @@ func SetUp(r *web.Router) Service {
 		"ranks",
 		nil,
 		map[string]web.Handler{
-			http.MethodGet: handler.getAll,
+			http.MethodGet:  handler.getAll,
 			http.MethodPost: handler.createOne,
 		},
 	)
@@ -29,9 +30,9 @@ func SetUp(r *web.Router) Service {
 		"ranks/:id",
 		[]web.Extractor{web.IntExtr},
 		map[string]web.Handler{
-			http.MethodGet: handler.getOne,
+			http.MethodGet:    handler.getOne,
 			http.MethodDelete: handler.removeOne,
-			http.MethodPatch: handler.modifyOne,
+			http.MethodPatch:  handler.modifyOne,
 		},
 	)
 
@@ -39,11 +40,13 @@ func SetUp(r *web.Router) Service {
 		"auth/current",
 		nil,
 		map[string]web.Handler{
-			http.MethodGet: handler.getCurrent,
+			http.MethodGet:    handler.getCurrent,
 			http.MethodDelete: handler.signOut,
-			http.MethodPut: handler.signIn,
+			http.MethodPut:    handler.signIn,
 		},
 	)
+
+	setUpWS(w, service)
 
 	return service
 }

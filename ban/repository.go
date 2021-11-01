@@ -16,7 +16,7 @@ type Repo interface {
 	deleteOne(ID int, modder int, removalReason string) error
 }
 
-type repoS struct {}
+type repoS struct{}
 
 func NewRepo() Repo {
 	return repoS{}
@@ -72,8 +72,7 @@ func (repoS) getAll(req banReq) (web.PageRes, error) {
 	for rows.Next() {
 		var oldType *rune
 		var b banMinModel
-		if err := rows.Scan(&b.id, &b.server, &b.recipient.Nick, &b.recipient.Rank, &b.start, &b.expiration, &oldType);
-			err != nil {
+		if err := rows.Scan(&b.id, &b.server, &b.recipient.Nick, &b.recipient.Rank, &b.start, &b.expiration, &oldType); err != nil {
 			return web.PageRes{}, err
 		}
 

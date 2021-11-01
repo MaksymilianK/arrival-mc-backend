@@ -1,6 +1,8 @@
 package validator
 
-import "errors"
+import (
+	"errors"
+)
 
 var ErrNotFound = errors.New("resource not found")
 var ErrValidation = errors.New("invalid data")
