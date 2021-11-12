@@ -18,6 +18,10 @@ type rankWithPerms struct {
 	NegatedPerms []string `json:"negatedPermissions"`
 }
 
+type ranksWithPerms struct {
+	Ranks []*rankWithPerms `json:"ranks"`
+}
+
 type rankFull struct {
 	rankMin
 	Perms map[int][]string `json:"permissions"`

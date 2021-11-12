@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/maksymiliank/arrival-mc-backend/util/db"
 	"github.com/maksymiliank/arrival-mc-backend/util/web"
-	"strings"
+	"log"
 )
 
 type Repo interface {
 	getRanks() ([]*rankFull, error)
-	getAllWebRanks() ([]rankWithPerms, error)
+	getServerRanks(serv int) ([]*rankWithPerms, error)
 	getAllPerms(rank int) (map[int][]string, map[int][]string, error)
 	createRank(rank rankCreation) (int, error)
 	removeRank(ID int) error
@@ -25,14 +25,8 @@ type Repo interface {
 
 type repoS struct{}
 
-func NewRepo() Repo {
+func SetUpRepo() Repo {
 	return repoS{}
-}
-
-type permission struct {
-	Server int
-	Perm   string
-	Negated bool
 }
 
 func (repoS) getRanks() ([]*rankFull, error) {
@@ -44,7 +38,7 @@ func (repoS) getRanks() ([]*rankFull, error) {
 	ranks := make([]*rankFull, 0)
 	for rows.Next() {
 		r := rankFull{Perms: make(map[int][]string), NegatedPerms: make(map[int][]string)}
-		var perms []permission
+		var perms []db.Perm
 		if err := rows.Scan(&r.ID, &r.Level, &r.Name, &r.DisplayName, &r.ChatFormat, &perms); err != nil {
 			return nil, err
 		}
@@ -54,12 +48,12 @@ func (repoS) getRanks() ([]*rankFull, error) {
 				if _, ok := r.NegatedPerms[p.Server]; !ok {
 					r.NegatedPerms[p.Server] = make([]string, 0)
 				}
-				r.NegatedPerms[p.Server] = append(r.NegatedPerms[p.Server], p.Perm)
+				r.NegatedPerms[p.Server] = append(r.NegatedPerms[p.Server], p.Value)
 			} else {
 				if _, ok := r.Perms[p.Server]; !ok {
 					r.Perms[p.Server] = make([]string, 0)
 				}
-				r.Perms[p.Server] = append(r.Perms[p.Server], p.Perm)
+				r.Perms[p.Server] = append(r.Perms[p.Server], p.Value)
 			}
 		}
 
@@ -69,25 +63,25 @@ func (repoS) getRanks() ([]*rankFull, error) {
 	return ranks, nil
 }
 
-func (repoS) getAllWebRanks() ([]rankWithPerms, error) {
-	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_ranks_with_web_perms()")
+func (repoS) getServerRanks(serv int) ([]*rankWithPerms, error) {
+	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_server_ranks($1)", serv)
 	if err != nil {
 		return nil, err
 	}
 
-	ranks := make([]rankWithPerms, 0)
+	ranks := make([]*rankWithPerms, 0)
 	for rows.Next() {
 		var r rankWithPerms
 		if err := rows.Scan(&r.ID, &r.Level, &r.Name, &r.DisplayName, &r.ChatFormat, &r.Perms, &r.NegatedPerms); err != nil {
 			return nil, err
 		}
-		ranks = append(ranks, r)
+		ranks = append(ranks, &r)
 	}
 	return ranks, nil
 }
 
 func (repoS) getAllPerms(rank int) (map[int][]string, map[int][]string, error) {
-	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_perms($1)", rank)
+	rows, err := db.Conn().Query(context.Background(), "SELECT * FROM get_permissions($1)", rank)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -96,9 +90,9 @@ func (repoS) getAllPerms(rank int) (map[int][]string, map[int][]string, error) {
 	negatedPerms := make(map[int][]string)
 
 	for rows.Next() {
-		var p permission
+		var p db.Perm
 
-		if err := rows.Scan(&p.Server, &p.Perm, &p.Negated); err != nil {
+		if err := rows.Scan(&p.Server, &p.Value, &p.Negated); err != nil {
 			return nil, nil, err
 		}
 
@@ -108,40 +102,44 @@ func (repoS) getAllPerms(rank int) (map[int][]string, map[int][]string, error) {
 		}
 
 		if p.Negated {
-			negatedPerms[p.Server] = append(negatedPerms[p.Server], p.Perm)
+			negatedPerms[p.Server] = append(negatedPerms[p.Server], p.Value)
 		} else {
-			perms[p.Server] = append(perms[p.Server], p.Perm)
+			perms[p.Server] = append(perms[p.Server], p.Value)
 		}
 	}
 	return perms, negatedPerms, nil
 }
 
-func pfs(permSlice []permission) string {
-	var perms strings.Builder
-	perms.WriteString("ARRAY[")
-	for _, p := range permSlice {
-		perms.WriteString(fmt.Sprintf("(%d,'%s', %t),", p.Server, p.Perm, p.Negated))
-	}
-	p := perms.String()
-	if p[len(p)-1] != '[' {
-		p = p[:len(p)-1]
-	}
-	p += "]::permission[]"
-	return p
-}
-
 func (repoS) createRank(rank rankCreation) (int, error) {
+	perms := make(db.PermArray, 0)
+	for s, sp := range rank.Perms {
+		for _, p := range sp {
+			perms = append(perms, db.Perm{s, p, false, pgtype.Present})
+		}
+	}
+	for s, sp := range rank.NegatedPerms {
+		for _, p := range sp {
+			perms = append(perms, db.Perm{s, p, true, pgtype.Present})
+		}
+	}
+
+	log.Println(perms)
+
 	row := db.Conn().QueryRow(
 		context.Background(),
 		fmt.Sprintf(
-			"SELECT * FROM create_rank($1, $2, $3, $4, %s)",
-			pfs(bothPermsMapToSlice(rank.Perms, rank.NegatedPerms)),
+			"SELECT * FROM create_rank($1, $2, $3, $4, $5)",
 		),
-		rank.Level, rank.Name, rank.DisplayName, rank.ChatFormat,
+		rank.Level, rank.Name, rank.DisplayName, rank.ChatFormat, perms,
 	)
 
 	var ID int
 	if err := row.Scan(&ID); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			fmt.Println(pgErr.Message) // => syntax error at end of input
+			fmt.Println(pgErr.Code) // => 42601
+		}
 		return 0, err
 	}
 	return ID, nil
@@ -181,12 +179,8 @@ func (repoS) modifyRank(ID int, rank rankModification) error {
 
 	_, err := db.Conn().Exec(
 		context.Background(),
-		fmt.Sprintf(
-			"SELECT * FROM modify_rank($1, $2, $3, $4, $5, %s, %s)",
-			pfs(bothPermsMapToSlice(rank.AddedPerms, rank.AddedNegatedPerms)),
-			pfs(bothPermsMapToSlice(rank.RemovedPerms, rank.RemovedNegatedPerms)),
-		),
-		ID, level, name, displayName, chatFormat,
+		fmt.Sprintf("SELECT * FROM modify_rank($1, $2, $3, $4, $5, $6, $7)"),
+		ID, level, name, displayName, chatFormat, rank.AddedNegatedPerms, rank.RemovedNegatedPerms,
 	)
 	return err
 }
@@ -203,52 +197,4 @@ func (repoS) getPlayerCredentials(nick string) (playerCredentials, error) {
 		}
 	}
 	return data, nil
-}
-
-func (p *permission) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
-	if src == nil {
-		return errors.New("NULL values can't be decoded")
-	}
-
-	if err := (pgtype.CompositeFields{&p.Server, &p.Perm, &p.Negated}).DecodeBinary(ci, src); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p permission) EncodeBinary(ci *pgtype.ConnInfo, buf []byte) (newBuf []byte, err error) {
-	server := pgtype.Int2{int16(p.Server), pgtype.Present}
-	perm := pgtype.Varchar{p.Perm, pgtype.Present}
-	negated := pgtype.Bool{p.Negated, pgtype.Present}
-	return (pgtype.CompositeFields{&server, &perm, &negated}).EncodeBinary(ci, buf)
-}
-
-func permsMapToSlice(permsMap map[int][]string, negated bool) []permission {
-	if negated {
-		return bothPermsMapToSlice(make(map[int][]string), permsMap)
-	} else {
-		return bothPermsMapToSlice(permsMap, make(map[int][]string))
-	}
-}
-
-func bothPermsMapToSlice(permsMap map[int][]string, negatedPermsMap map[int][]string) []permission {
-	perms := make([]permission, 0)
-
-	if permsMap != nil {
-		for s, sp := range permsMap {
-			for _, p := range sp {
-				perms = append(perms, permission{s, p, false})
-			}
-		}
-	}
-
-	if negatedPermsMap != nil {
-		for s, sp := range negatedPermsMap {
-			for _, p := range sp {
-				perms = append(perms, permission{s, p, true})
-			}
-		}
-	}
-
-	return perms
 }

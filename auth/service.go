@@ -11,7 +11,6 @@ import (
 )
 
 type Service interface {
-	// RankExists checks if a rank with the given ID exists.
 	RankExists(ID int) bool
 	GetRanks() ([]*rankFull, error)
 	RequireAuth(SID string) (*Player, bool)
@@ -21,6 +20,7 @@ type Service interface {
 	TryExtendSession(SID string) bool
 
 	rankWithWebPerms(ID int) (*rankWithPerms, error)
+	ranksWithPerms(serv int) ([]*rankWithPerms, error)
 	allRanks() minRanks
 	oneRank(ID int) (rankFull, error)
 	createRank(rank rankCreation) (int, error)
@@ -33,9 +33,9 @@ type Service interface {
 }
 
 type serviceS struct {
-	repo              Repo
-	sessions          SessionManager
-	crypto            Crypto
+	repo     Repo
+	sessions SessionsManager
+	crypto   Crypto
 	ranksWithWebPerms map[int]*rankWithPerms
 	minRanks          minRanks
 	byLevel           []*Rank
@@ -46,7 +46,7 @@ type serviceS struct {
 var permRegex = regexp.MustCompile(`^[A-Za-z0-9*]+(\.[A-Za-z0-9*]+)*$`)
 var nickRegex = regexp.MustCompile(`^\w{3,16}$`)
 
-func NewService(repo Repo, sessions SessionManager, crypto Crypto) Service {
+func newService(repo Repo, sessions SessionsManager, crypto Crypto) Service {
 	service := &serviceS{
 		repo:              repo,
 		sessions:          sessions,
@@ -56,7 +56,7 @@ func NewService(repo Repo, sessions SessionManager, crypto Crypto) Service {
 		byID:              make(map[int]*Rank),
 	}
 
-	ranks, err := repo.getAllWebRanks()
+	ranks, err := repo.getServerRanks(server.WebsiteID)
 	if err != nil {
 		panic(err)
 	}
@@ -125,6 +125,10 @@ func (s *serviceS) allRanks() minRanks {
 	defer s.lock.RUnlock()
 
 	return s.minRanks
+}
+
+func (s *serviceS) ranksWithPerms(serv int) ([]*rankWithPerms, error) {
+	return s.repo.getServerRanks(serv)
 }
 
 func (s *serviceS) oneRank(ID int) (rankFull, error) {
@@ -307,10 +311,10 @@ func (s *serviceS) signOut(SID string) bool {
 	return s.sessions.remove(SID)
 }
 
-func (s *serviceS) setRanks(ranksWeb []rankWithPerms) {
+func (s *serviceS) setRanks(ranksWeb []*rankWithPerms) {
 	ranks := make([]*rankMin, 0)
 	for i, r := range ranksWeb {
-		s.ranksWithWebPerms[r.ID] = &ranksWeb[i]
+		s.ranksWithWebPerms[r.ID] = ranksWeb[i]
 
 		ranks = append(ranks, &rankMin{
 			r.ID,

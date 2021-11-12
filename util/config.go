@@ -1,7 +1,6 @@
 package util
 
 import (
-	"errors"
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/fs"
@@ -29,29 +28,29 @@ type Config struct {
 
 const file = "./config.yaml"
 
-func ReadCfg() (*Config, error) {
+func ReadCfg() (*Config) {
 	info, err := os.Stat(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := ioutil.WriteFile(file, []byte{}, fs.ModePerm); err != nil {
-				return nil, err
+				panic(err)
 			}
 		}
-		return nil, err
+		panic(err)
 	}
 
 	if info.IsDir() {
-		return nil, errors.New(fmt.Sprintf("Config file '%s' is a directory", file))
+		panic(fmt.Sprintf("Config file '%s' is a directory", file))
 	}
 
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+		panic(err)
 	}
-	return &cfg, nil
+	return &cfg
 }

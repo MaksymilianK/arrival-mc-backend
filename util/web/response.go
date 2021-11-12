@@ -27,7 +27,7 @@ func GlobalHeaders(res http.ResponseWriter) {
 func ExtendSession(res http.ResponseWriter, SID string, maxAge int) {
 	res.Header().Set(
 		"Set-Cookie",
-		fmt.Sprintf("SID=%s; max-age=%d; path=/", SID, maxAge),
+		fmt.Sprintf("SID=%s; Max-Age=%d; Path=/", SID, maxAge),
 	)
 }
 

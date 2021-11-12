@@ -14,7 +14,7 @@ type session struct {
 	expiration time.Time
 }
 
-type SessionManager interface {
+type SessionsManager interface {
 	monitor()
 	new(p *Player) (string, error)
 	find(SID string) (*Player, bool)
@@ -22,7 +22,7 @@ type SessionManager interface {
 	remove(SID string) bool
 }
 
-type sessionManagerS struct {
+type sessionsManagerS struct {
 	crypto       Crypto
 	bySID        map[string]*session
 	byExpiration *rbt.Tree
@@ -32,15 +32,15 @@ type sessionManagerS struct {
 const SessionLifetime = 15 * time.Minute
 const monitorDuration = 30 * time.Second
 
-func NewSessionManager(crypto Crypto) SessionManager {
-	return &sessionManagerS{
+func newSessionManager(crypto Crypto) SessionsManager {
+	return &sessionsManagerS{
 		crypto:       crypto,
 		bySID:        make(map[string]*session),
 		byExpiration: rbt.NewWith(compareSessions),
 	}
 }
 
-func (s *sessionManagerS) monitor() {
+func (s *sessionsManagerS) monitor() {
 	for {
 		s.lock.Lock()
 		s.walkAndRemove(s.byExpiration.Root, time.Now())
@@ -50,7 +50,7 @@ func (s *sessionManagerS) monitor() {
 	}
 }
 
-func (s *sessionManagerS) new(p *Player) (string, error) {
+func (s *sessionsManagerS) new(p *Player) (string, error) {
 	SID, err := s.generateSID()
 	if err != nil {
 		return "", err
@@ -68,7 +68,7 @@ func (s *sessionManagerS) new(p *Player) (string, error) {
 	return SID, nil
 }
 
-func (s *sessionManagerS) find(SID string) (*Player, bool) {
+func (s *sessionsManagerS) find(SID string) (*Player, bool) {
 	s.lock.RLock()
 	session, ok := s.bySID[SID]
 	s.lock.RUnlock()
@@ -80,7 +80,7 @@ func (s *sessionManagerS) find(SID string) (*Player, bool) {
 	}
 }
 
-func (s *sessionManagerS) extendIfExists(SID string) bool {
+func (s *sessionsManagerS) extendIfExists(SID string) bool {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -93,14 +93,14 @@ func (s *sessionManagerS) extendIfExists(SID string) bool {
 	return ok
 }
 
-func (s *sessionManagerS) remove(SID string) bool {
+func (s *sessionsManagerS) remove(SID string) bool {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	return s.doRemove(SID)
 }
 
-func (s *sessionManagerS) walkAndRemove(n *rbt.Node, time time.Time) {
+func (s *sessionsManagerS) walkAndRemove(n *rbt.Node, time time.Time) {
 	if n == nil {
 		return
 	}
@@ -116,7 +116,7 @@ func (s *sessionManagerS) walkAndRemove(n *rbt.Node, time time.Time) {
 	}
 }
 
-func (s *sessionManagerS) generateSID() (string, error) {
+func (s *sessionsManagerS) generateSID() (string, error) {
 	SID, err := s.crypto.Rand(32)
 	if err != nil {
 		return "", err
@@ -124,7 +124,7 @@ func (s *sessionManagerS) generateSID() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(SID), nil
 }
 
-func (s *sessionManagerS) doRemove(SID string) bool {
+func (s *sessionsManagerS) doRemove(SID string) bool {
 	session, ok := s.bySID[SID]
 	if ok {
 		delete(s.bySID, SID)

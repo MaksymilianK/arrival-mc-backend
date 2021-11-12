@@ -14,20 +14,23 @@ import (
 	"sync"
 )
 
-type msgHandler func(msg []byte) error
+type MsgHandler struct {
+	NewDTO func() interface{}
+	OnMsg  func(dto interface{}) error
+}
 
 type Server struct {
 	lock sync.RWMutex
 
 	mcAddr string
 	mcConn net.Conn
-	mcHandlers map[int][]msgHandler
+	mcHandlers map[int][]MsgHandler
 }
 
 func SetUp(r *web.Router, cfg util.WSConfig) *Server {
 	s := &Server{
 		mcAddr: fmt.Sprintf("%s:%d", cfg.MCIP, cfg.MCPort),
-		mcHandlers: make(map[int][]msgHandler),
+		mcHandlers: make(map[int][]MsgHandler),
 	}
 
 	r.NewRoute(
@@ -49,11 +52,33 @@ func SetUp(r *web.Router, cfg util.WSConfig) *Server {
 	return s
 }
 
-func (s * Server) AddMCHandler(msgType int, onMsg msgHandler) {
+func (s * Server) AddMCHandler(msgType int, onMsg MsgHandler) {
 	if _, ok := s.mcHandlers[msgType]; !ok {
-		s.mcHandlers[msgType] = make([]msgHandler, 0, 1)
+		s.mcHandlers[msgType] = make([]MsgHandler, 0, 1)
 	}
 	s.mcHandlers[msgType] = append(s.mcHandlers[msgType], onMsg)
+}
+
+func (s *Server) SendToMC(msg interface{}) error {
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	if s.mcConn == nil {
+		return errors.New("MC connection has been closed")
+	}
+
+	if err := wsutil.WriteClientText(s.mcConn, jsonMsg); err != nil {
+		log.Println(err)
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) handleMC(res http.ResponseWriter, req *http.Request, _ web.PathVars) {
@@ -80,8 +105,8 @@ func (s *Server) upgradeConn(res http.ResponseWriter, req *http.Request) (net.Co
 	}
 
 	if conn.RemoteAddr().String() != s.mcAddr {
-		//closeWS(conn, 4001, "Connection from this address is not allowed")
-		//return nil, errors.New(fmt.Sprintf("connection from this address is not allowed '%s'", conn.RemoteAddr().String()))
+		closeWS(conn, 4001, "Connection from this address is not allowed")
+		return nil, errors.New(fmt.Sprintf("connection from this address is not allowed '%s'", conn.RemoteAddr().String()))
 	}
 
 	s.mcConn = conn
@@ -100,55 +125,42 @@ func (s *Server) readMCMsgs(conn net.Conn) {
 	for {
 		msg, err := wsutil.ReadClientText(conn)
 		if err != nil {
-			log.Println(err)
 			closeWS(conn, 4500, err.Error())
 			return
 		}
 
 		var msgType msgType
 		if err := json.Unmarshal(msg, &msgType); err != nil {
-			log.Println("2")
 			closeWS(conn, 4002, err.Error())
 			return
 		}
 
 		handlers, ok := s.mcHandlers[msgType.T]
 		if !ok {
-			log.Println("3")
 			closeWS(conn, 4004, fmt.Sprintf("There is no handler for the message type %d", msgType.T))
 			return
 		}
 
 		for _, h := range handlers {
-			if err := h(msg); err != nil {
-				log.Println("4")
-				closeWS(conn, 4005, err.Error())
-				return
-			}
+			go s.onMCMsg(msg, h)
 		}
 	}
 }
 
-func (s *Server) sendToMC(msg interface{}) error {
-	jsonMsg, err := json.Marshal(msg)
-	if err != nil {
+func (s *Server) onMCMsg(msg []byte, h MsgHandler) {
+	DTO := h.NewDTO()
+
+	if DTO != nil {
+		if err := json.Unmarshal(msg, DTO); err != nil {
+			log.Println(err)
+			return
+		}
+	}
+
+	if err := h.OnMsg(DTO); err != nil {
 		log.Println(err)
-		return err
+		return
 	}
-
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	if s.mcConn == nil {
-		return errors.New("MC connection has been closed")
-	}
-
-	if err := wsutil.WriteClientText(s.mcConn, jsonMsg); err != nil {
-		log.Println(err)
-		return err
-	}
-
-	return nil
 }
 
 func (s *Server) handlePlayer(res http.ResponseWriter, req *http.Request, _ web.PathVars) {

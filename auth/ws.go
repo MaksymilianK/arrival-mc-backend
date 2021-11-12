@@ -1,12 +1,11 @@
 package auth
 
 import (
-	"encoding/json"
 	"github.com/maksymiliank/arrival-mc-backend/ws"
-	"log"
 )
 
 type WSHandler struct {
+	ws *ws.Server
 	service Service
 }
 
@@ -16,24 +15,16 @@ const (
 	inboundRankListMsgType = 1000
 )
 
-func setUpWS(s *ws.Server, service Service) {
-	h := WSHandler{service}
+func (h WSHandler) onRankList(DTO interface{}) error {
+	rankList := DTO.(*rankList)
 
-	s.AddMCHandler(inboundRankListMsgType, h.onRankList)
-}
-
-func (h WSHandler) onRankList(msg []byte) error {
-	var r rankList
-	if err := json.Unmarshal(msg, &r); err != nil {
-		return err
-	}
-
-	f, err := h.service.GetRanks()
+	ranks, err := h.service.ranksWithPerms(rankList.Server)
 	if err != nil {
-		log.Println(err)
 		return err
 	}
-	log.Println(f)
 
+	if err := h.ws.SendToMC(ranks); err != nil {
+		return err
+	}
 	return nil
 }

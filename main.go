@@ -2,8 +2,6 @@ package main
 
 import (
 	"github.com/maksymiliank/arrival-mc-backend/auth"
-	"github.com/maksymiliank/arrival-mc-backend/ban"
-	"github.com/maksymiliank/arrival-mc-backend/player"
 	"github.com/maksymiliank/arrival-mc-backend/server"
 	"github.com/maksymiliank/arrival-mc-backend/util"
 	"github.com/maksymiliank/arrival-mc-backend/util/db"
@@ -11,6 +9,7 @@ import (
 	"github.com/maksymiliank/arrival-mc-backend/ws"
 	"log"
 	"net/http"
+	"os"
 )
 
 type Handler struct {
@@ -32,24 +31,23 @@ func (h Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	cfg, err := util.ReadCfg()
-	if err != nil {
-		panic(err)
+	args := os.Args[1:]
+	dbFullSetup := false
+	if len(args) > 0 && args[0] == "dbfullsetup" {
+		dbFullSetup = true
 	}
-	db.SetUp(cfg.DB)
 
-	r := web.NewRouter()
+	cfg := util.ReadCfg()
 
-	serverService := server.SetUp(r)
+	db.SetUp(cfg.DB, dbFullSetup)
 
-	w := ws.SetUp(r, cfg.WS)
+	router := web.NewRouter()
 
-	authService := auth.SetUp(r, w)
+	server.SetUp(router)
 
-	player.SetUp(r, authService)
-
-	ban.SetUp(r, serverService, authService)
+	wsServ := ws.SetUp(router, cfg.WS)
+	authService, _ := auth.SetUp(router, wsServ)
 
 	log.Print("The application is running!")
-	log.Fatal(http.ListenAndServe(":8080", Handler{r, authService}))
+	log.Fatal(http.ListenAndServe(":8080", Handler{router, authService}))
 }

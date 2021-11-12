@@ -33,10 +33,6 @@ type Crypto interface {
 
 type cryptoS struct{}
 
-func NewCrypto() Crypto {
-	return cryptoS{}
-}
-
 func (cryptoS) Rand(len int) ([]byte, error) {
 	randBytes := make([]byte, len)
 	_, err := rand.Read(randBytes)
